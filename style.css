@@ -187,7 +187,7 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout fieldset.wc-block-checkout__shipping-option .wc-block-components-radio-control__option {
-    border-bottom: 0px solid #a7262600 !important;
+    border-bottom: 1px solid #dedede !important;
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-radio-control--highlight-checked .wc-block-components-radio-control__option::after,
