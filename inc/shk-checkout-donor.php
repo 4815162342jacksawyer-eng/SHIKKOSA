@@ -117,45 +117,135 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (!row.contains(postcodeWrap)) row.appendChild(postcodeWrap);
       }
 
-      function mountShippingModeAsOptions(shippingMethodSwitch, shippingOptions) {
-        if (!shippingMethodSwitch || !shippingOptions) return;
+      function wait(ms) {
+        return new Promise(function(resolve) {
+          window.setTimeout(resolve, ms);
+        });
+      }
 
-        var sourceContainer = shippingMethodSwitch.querySelector('.wc-block-checkout__shipping-method-container');
-        var shippingOptionsContent = shippingOptions.querySelector('.wc-block-components-checkout-step__content');
-        if (!sourceContainer || !shippingOptionsContent) return;
+      function captureCurrentRateOptions(shippingOptions) {
+        if (!shippingOptions) return [];
+        var list = [];
+        var options = shippingOptions.querySelectorAll('.wc-block-components-radio-control__option');
+        options.forEach(function(opt) {
+          var input = opt.querySelector('.wc-block-components-radio-control__input');
+          var label = opt.querySelector('.wc-block-components-radio-control__label');
+          var secondary = opt.querySelector('.wc-block-components-radio-control__secondary-label');
+          if (!input || !label) return;
+          list.push({
+            value: String(input.value || ''),
+            label: (label.textContent || '').trim(),
+            secondary: secondary ? (secondary.textContent || '').trim() : '',
+            checked: !!input.checked
+          });
+        });
+        return list;
+      }
 
-        var mount = shippingOptionsContent.querySelector('.shk-shipping-mode-list');
-        if (!mount) {
-          mount = document.createElement('div');
-          mount.className = 'shk-shipping-mode-list wc-block-components-radio-control';
-          shippingOptionsContent.insertAdjacentElement('afterbegin', mount);
-        } else {
-          mount.innerHTML = '';
-        }
+      async function mountUnifiedShippingRates(root) {
+        if (!root || root.dataset.shkUnifiedRatesBusy === '1') return;
+        root.dataset.shkUnifiedRatesBusy = '1';
 
-        var sourceOptions = sourceContainer.querySelectorAll('.wc-block-checkout__shipping-method-option');
-        sourceOptions.forEach(function (srcOpt) {
-          var titleNode = srcOpt.querySelector('.wc-block-checkout__shipping-method-option-title');
-          var titleText = titleNode ? titleNode.textContent.trim() : '';
-          if (!titleText) return;
+        try {
+          var shippingMethodSwitch = root.querySelector('fieldset.wc-block-checkout__shipping-method');
+          var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+          if (!shippingMethodSwitch || !shippingOptions) return;
 
-          var row = document.createElement('div');
-          row.className = 'wc-block-components-radio-control__option shk-shipping-mode-option';
-          if (srcOpt.getAttribute('aria-checked') === 'true') {
-            row.classList.add('wc-block-components-radio-control__option-checked');
-          }
-          row.innerHTML = '<label><span class="wc-block-components-radio-control__option-layout"><span class="wc-block-components-radio-control__label-group"><span class="wc-block-components-radio-control__label"></span></span></span></label>';
-          var label = row.querySelector('.wc-block-components-radio-control__label');
-          if (label) label.textContent = titleText;
+          var switchContainer = shippingMethodSwitch.querySelector('.wc-block-checkout__shipping-method-container');
+          var switchModes = switchContainer ? switchContainer.querySelectorAll('.wc-block-checkout__shipping-method-option') : [];
+          if (!switchContainer || !switchModes.length) return;
 
-          row.addEventListener('click', function () {
-            srcOpt.click();
+          var content = shippingOptions.querySelector('.wc-block-components-checkout-step__content');
+          var nativeRatesWrap = shippingOptions.querySelector('.wc-block-components-shipping-rates-control');
+          if (!content || !nativeRatesWrap) return;
+
+          var modeData = [];
+          var currentModeIdx = 0;
+          switchModes.forEach(function(modeEl, idx) {
+            var titleNode = modeEl.querySelector('.wc-block-checkout__shipping-method-option-title');
+            var title = titleNode ? (titleNode.textContent || '').trim() : ('mode-' + idx);
+            modeData.push({ idx: idx, title: title, el: modeEl, rates: [] });
+            if (modeEl.getAttribute('aria-checked') === 'true') currentModeIdx = idx;
           });
 
-          mount.appendChild(row);
-        });
+          for (var i = 0; i < modeData.length; i++) {
+            if (modeData[i].idx !== currentModeIdx) {
+              modeData[i].el.click();
+              await wait(350);
+            }
+            modeData[i].rates = captureCurrentRateOptions(shippingOptions);
+          }
 
-        shippingMethodSwitch.style.display = 'none';
+          if (modeData[currentModeIdx]) {
+            modeData[currentModeIdx].el.click();
+            await wait(200);
+          }
+
+          var activeRates = captureCurrentRateOptions(shippingOptions);
+          var currentValue = '';
+          activeRates.forEach(function(r) { if (r.checked) currentValue = r.value; });
+
+          var unified = content.querySelector('.shk-unified-shipping-list');
+          if (!unified) {
+            unified = document.createElement('div');
+            unified.className = 'shk-unified-shipping-list wc-block-components-radio-control';
+            content.insertAdjacentElement('afterbegin', unified);
+          } else {
+            unified.innerHTML = '';
+          }
+
+          modeData.forEach(function(mode) {
+            mode.rates.forEach(function(rate) {
+              if (!rate || !rate.value || !rate.label) return;
+              var row = document.createElement('div');
+              row.className = 'wc-block-components-radio-control__option shk-unified-shipping-option';
+              if (mode.idx === currentModeIdx && rate.value === currentValue) {
+                row.classList.add('wc-block-components-radio-control__option-checked');
+              }
+              row.setAttribute('data-shk-mode-idx', String(mode.idx));
+              row.setAttribute('data-shk-rate-value', rate.value);
+              row.innerHTML =
+                '<label><span class="wc-block-components-radio-control__option-layout">' +
+                '<span class="wc-block-components-radio-control__label-group">' +
+                '<span class="wc-block-components-radio-control__label"></span>' +
+                '<span class="wc-block-components-radio-control__secondary-label"></span>' +
+                '</span></span></label>';
+
+              var labelEl = row.querySelector('.wc-block-components-radio-control__label');
+              var secEl = row.querySelector('.wc-block-components-radio-control__secondary-label');
+              if (labelEl) labelEl.textContent = rate.label;
+              if (secEl) secEl.textContent = rate.secondary || '';
+
+              row.addEventListener('click', function() {
+                var targetModeIdx = parseInt(row.getAttribute('data-shk-mode-idx') || '0', 10);
+                var targetValue = row.getAttribute('data-shk-rate-value') || '';
+                var modeEl = switchModes[targetModeIdx];
+                if (!modeEl) return;
+                modeEl.click();
+                window.setTimeout(function() {
+                  var liveOptions = shippingOptions.querySelectorAll('.wc-block-components-radio-control__option .wc-block-components-radio-control__input');
+                  liveOptions.forEach(function(inp) {
+                    if (String(inp.value || '') === targetValue) {
+                      var lbl = inp.closest('label');
+                      if (lbl) {
+                        lbl.click();
+                      } else {
+                        inp.click();
+                      }
+                    }
+                  });
+                }, 250);
+              });
+
+              unified.appendChild(row);
+            });
+          });
+
+          shippingMethodSwitch.style.display = 'none';
+          nativeRatesWrap.style.display = 'none';
+        } finally {
+          root.dataset.shkUnifiedRatesBusy = '0';
+        }
       }
 
       function forceOrderNote(root) {
@@ -327,7 +417,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           (orderNotes || shippingFields).insertAdjacentElement('afterend', payment);
         }
 
-        mountShippingModeAsOptions(shippingMethodSwitch, shippingOptions);
+        mountUnifiedShippingRates(root);
 
         setTitle(contact, 'Заполните информацию о себе');
         setTitle(shippingOptions, 'Адрес и способ доставки');
@@ -436,6 +526,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       document.addEventListener('change', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        mountUnifiedShippingRates(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
         movePlaceOrderButtonIntoSummary(root);
@@ -444,6 +535,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       document.addEventListener('wc-blocks_checkout_update', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        mountUnifiedShippingRates(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
         movePlaceOrderButtonIntoSummary(root);
