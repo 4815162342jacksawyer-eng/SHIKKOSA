@@ -54,6 +54,80 @@ function shikkosa_should_apply_runtime_price_overrides_local() {
     return function_exists( 'is_product' ) && is_product();
 }
 
+function shikkosa_is_loop_4016_context_local() {
+    return ! empty( $GLOBALS['shk_loop_4016_query_active'] ) || did_action( 'elementor/query/loop-4016' ) > 0;
+}
+
+function shikkosa_db_post_meta_value_local( $post_id, $meta_key ) {
+    global $wpdb;
+    $post_id = (int) $post_id;
+    $meta_key = (string) $meta_key;
+    if ( $post_id <= 0 || '' === $meta_key ) {
+        return '';
+    }
+
+    $value = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s LIMIT 1",
+            $post_id,
+            $meta_key
+        )
+    );
+
+    return is_scalar( $value ) ? (string) $value : '';
+}
+
+add_filter(
+    'get_post_metadata',
+    function( $value, $object_id, $meta_key, $single ) {
+        if ( ! shikkosa_is_loop_4016_context_local() ) {
+            return $value;
+        }
+        if ( ! in_array( (string) $meta_key, array( '_regular_price', '_sale_price', '_price' ), true ) ) {
+            return $value;
+        }
+
+        $object_id = (int) $object_id;
+        if ( $object_id <= 0 ) {
+            return $value;
+        }
+
+        $regular_raw = shikkosa_db_post_meta_value_local( $object_id, '_regular_price' );
+        $sale_raw = shikkosa_db_post_meta_value_local( $object_id, '_sale_price' );
+        $regular = (float) shikkosa_parse_price_amount_local( $regular_raw );
+        $sale = (float) shikkosa_parse_price_amount_local( $sale_raw );
+
+        $normalized_regular = 0.0;
+        $normalized_sale = 0.0;
+        if ( $regular > 0 && $sale > 0 ) {
+            $normalized_regular = max( $regular, $sale );
+            $normalized_sale = min( $regular, $sale );
+            if ( $normalized_sale >= $normalized_regular ) {
+                $normalized_sale = 0.0;
+            }
+        } elseif ( $regular > 0 ) {
+            $normalized_regular = $regular;
+        } elseif ( $sale > 0 ) {
+            $normalized_regular = $sale;
+        }
+
+        if ( '_regular_price' === $meta_key ) {
+            $out = $normalized_regular > 0 ? wc_format_decimal( $normalized_regular ) : '';
+            return $single ? $out : array( $out );
+        }
+        if ( '_sale_price' === $meta_key ) {
+            $out = $normalized_sale > 0 ? wc_format_decimal( $normalized_sale ) : '';
+            return $single ? $out : array( $out );
+        }
+
+        $price_out = $normalized_sale > 0 ? $normalized_sale : $normalized_regular;
+        $out = $price_out > 0 ? wc_format_decimal( $price_out ) : '';
+        return $single ? $out : array( $out );
+    },
+    20,
+    4
+);
+
 function shikkosa_normalized_raw_price_pair_local( $product_id ) {
     $product_id = (int) $product_id;
     if ( $product_id <= 0 ) {

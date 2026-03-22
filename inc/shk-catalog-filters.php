@@ -934,5 +934,6 @@ add_action( 'pre_get_posts', function( $query ) {
 } );
 
 add_action( 'elementor/query/loop-4016', function( $query ) {
+    $GLOBALS['shk_loop_4016_query_active'] = true;
     shikkosa_apply_catalog_filters_to_query( $query );
 } );
