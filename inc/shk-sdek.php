@@ -959,9 +959,13 @@ function shikkosa_sdek_render_wc_shipping_manager() {
         .shk-sdek-variant-item{border:1px solid #dcdcde;background:#fff;padding:8px;margin-bottom:8px}
         .shk-sdek-variant-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
         .shk-sdek-variant-item-title{font-weight:600}
+        .shk-sdek-variant-drag{cursor:move;color:#646970;font-size:16px;padding:0 8px}
         .shk-sdek-variant-del{border:1px solid #b32d2e;color:#b32d2e;background:#fff;border-radius:4px;padding:2px 8px;cursor:pointer}
         .shk-sdek-variant-grid{display:grid;grid-template-columns:1.2fr 0.7fr 1fr 1.1fr;gap:8px}
         .shk-sdek-empty{color:#646970;font-style:italic}
+        .shk-sdek-sort-wrap{display:flex;align-items:center;gap:8px}
+        .shk-sdek-variant-item.is-dragging{opacity:.55}
+        .shk-sdek-variant-item.is-drop-target{outline:2px dashed #2271b1}
     </style>
 
     <p>
@@ -1016,7 +1020,10 @@ function shikkosa_sdek_render_wc_shipping_manager() {
                                 <?php foreach ( $variants as $idx => $variant ) : ?>
                                     <div class="shk-sdek-variant-item">
                                         <div class="shk-sdek-variant-item-head">
-                                            <div class="shk-sdek-variant-item-title">Доп. вариант #<?php echo esc_html( (string) ( $idx + 1 ) ); ?></div>
+                                            <div class="shk-sdek-sort-wrap">
+                                                <span class="shk-sdek-variant-drag" title="Перетащить">↕</span>
+                                                <div class="shk-sdek-variant-item-title">Доп. вариант #<?php echo esc_html( (string) ( $idx + 1 ) ); ?></div>
+                                            </div>
                                             <button type="button" class="shk-sdek-variant-del">Удалить</button>
                                         </div>
                                         <div class="shk-sdek-variant-grid">
@@ -1046,14 +1053,80 @@ function shikkosa_sdek_render_wc_shipping_manager() {
             <?php endforeach; ?>
             </tbody>
         </table>
+
         <script>
         (function() {
+            function normalizeInputNames(item, profile, index) {
+                item.querySelectorAll('input[name]').forEach(function(input) {
+                    var name = input.getAttribute('name') || '';
+                    name = name.replace(/(shikkosa_sdek_settings\[[^\]]+_variants\])\[\d+\](\[[^\]]+\])/i, '$1[' + index + ']$2');
+                    input.setAttribute('name', name);
+                });
+            }
+
+            function renumberList(list) {
+                if (!list) {
+                    return;
+                }
+                var profile = list.getAttribute('data-profile');
+                var items = list.querySelectorAll('.shk-sdek-variant-item');
+                items.forEach(function(item, idx) {
+                    var title = item.querySelector('.shk-sdek-variant-item-title');
+                    if (title) {
+                        title.textContent = 'Доп. вариант #' + (idx + 1);
+                    }
+                    normalizeInputNames(item, profile, idx);
+                });
+                list.setAttribute('data-next-index', String(items.length));
+            }
+
+            function enableDragSort(list) {
+                var dragItem = null;
+                list.querySelectorAll('.shk-sdek-variant-item').forEach(function(item) {
+                    if (item.getAttribute('data-drag-init') === '1') {
+                        return;
+                    }
+                    item.setAttribute('data-drag-init', '1');
+                    item.setAttribute('draggable', 'true');
+                    item.addEventListener('dragstart', function() {
+                        dragItem = item;
+                        item.classList.add('is-dragging');
+                    });
+                    item.addEventListener('dragend', function() {
+                        item.classList.remove('is-dragging');
+                        list.querySelectorAll('.is-drop-target').forEach(function(el) { el.classList.remove('is-drop-target'); });
+                        dragItem = null;
+                        renumberList(list);
+                    });
+                    item.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        if (!dragItem || dragItem === item) return;
+                        item.classList.add('is-drop-target');
+                    });
+                    item.addEventListener('dragleave', function() {
+                        item.classList.remove('is-drop-target');
+                    });
+                    item.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        item.classList.remove('is-drop-target');
+                        if (!dragItem || dragItem === item) return;
+                        var rect = item.getBoundingClientRect();
+                        var before = (e.clientY - rect.top) < (rect.height / 2);
+                        if (before) {
+                            item.parentNode.insertBefore(dragItem, item);
+                        } else {
+                            item.parentNode.insertBefore(dragItem, item.nextSibling);
+                        }
+                    });
+                });
+            }
+
             function variantItemHtml(profile, index) {
                 var title = index + 1;
                 return '' +
                     '<div class="shk-sdek-variant-item">' +
                     '  <div class="shk-sdek-variant-item-head">' +
-                    '    <div class="shk-sdek-variant-item-title">Доп. вариант #' + title + '</div>' +
+                    '    <div class="shk-sdek-sort-wrap"><span class="shk-sdek-variant-drag" title="Перетащить">↕</span><div class="shk-sdek-variant-item-title">Доп. вариант #' + title + '</div></div>' +
                     '    <button type="button" class="shk-sdek-variant-del">Удалить</button>' +
                     '  </div>' +
                     '  <div class="shk-sdek-variant-grid">' +
@@ -1104,6 +1177,8 @@ function shikkosa_sdek_render_wc_shipping_manager() {
                     if (node) {
                         list.appendChild(node);
                         list.setAttribute('data-next-index', String(nextIndex + 1));
+                        enableDragSort(list);
+                        renumberList(list);
                     }
                     syncRow(profile);
                 });
@@ -1120,10 +1195,13 @@ function shikkosa_sdek_render_wc_shipping_manager() {
                     return;
                 }
                 item.remove();
+                renumberList(list);
                 syncRow(list.getAttribute('data-profile'));
             });
 
             document.querySelectorAll('.shk-variants-list').forEach(function(list) {
+                enableDragSort(list);
+                renumberList(list);
                 syncRow(list.getAttribute('data-profile'));
             });
         })();
