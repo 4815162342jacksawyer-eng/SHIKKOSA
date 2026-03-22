@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 
 function shikkosa_sdek_settings_default() {
-    return array(
+    $defaults = array(
         'enabled'            => 'yes',
         'debug_timing'       => 'no',
         'cdek_door_door_label'   => '',
@@ -56,6 +56,16 @@ function shikkosa_sdek_settings_default() {
         'rf_no_fit_extra'    => '0',
         'rf_fit_extra'       => '0',
     );
+
+    foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile ) {
+        $defaults[ $profile . '_variant_enabled' ] = 'no';
+        $defaults[ $profile . '_variant_label' ] = '';
+        $defaults[ $profile . '_variant_price' ] = '';
+        $defaults[ $profile . '_variant_price_comment' ] = '';
+        $defaults[ $profile . '_variant_delivery_comment' ] = '';
+    }
+
+    return $defaults;
 }
 
 function shikkosa_sdek_settings() {
@@ -100,6 +110,15 @@ function shikkosa_sdek_settings_sanitize( $input ) {
         $out[ $key ] = $value;
     }
 
+    foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile ) {
+        $enabled_key = $profile . '_variant_enabled';
+        $out[ $enabled_key ] = ( isset( $input[ $enabled_key ] ) && 'yes' === (string) $input[ $enabled_key ] ) ? 'yes' : 'no';
+
+        $label_key = $profile . '_variant_label';
+        $label_val = isset( $input[ $label_key ] ) ? $input[ $label_key ] : '';
+        $out[ $label_key ] = is_scalar( $label_val ) ? sanitize_text_field( (string) $label_val ) : '';
+    }
+
     foreach ( array(
         'cdek_door_door_price',
         'cdek_door_warehouse_price',
@@ -116,6 +135,16 @@ function shikkosa_sdek_settings_sanitize( $input ) {
             continue;
         }
         $out[ $key ] = is_scalar( $value ) ? (string) wc_format_decimal( (string) $value ) : '';
+    }
+
+    foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile ) {
+        $price_key = $profile . '_variant_price';
+        $price_val = isset( $input[ $price_key ] ) ? $input[ $price_key ] : '';
+        if ( '' === trim( (string) $price_val ) ) {
+            $out[ $price_key ] = '';
+        } else {
+            $out[ $price_key ] = is_scalar( $price_val ) ? (string) wc_format_decimal( (string) $price_val ) : '';
+        }
     }
 
     foreach ( array(
@@ -138,6 +167,14 @@ function shikkosa_sdek_settings_sanitize( $input ) {
     ) as $key ) {
         $value = isset( $input[ $key ] ) ? $input[ $key ] : '';
         $out[ $key ] = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '';
+    }
+
+    foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile ) {
+        foreach ( array( '_variant_price_comment', '_variant_delivery_comment' ) as $suffix ) {
+            $k = $profile . $suffix;
+            $value = isset( $input[ $k ] ) ? $input[ $k ] : '';
+            $out[ $k ] = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '';
+        }
     }
 
     foreach ( array( 'msk_no_fit_extra', 'msk_fit_extra', 'rf_no_fit_extra', 'rf_fit_extra' ) as $key ) {
@@ -338,7 +375,6 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
         return $rates;
     }
 
-    $is_msk_mo = shikkosa_is_msk_mo_destination( $package );
     $split_enabled = ( 'yes' === (string) $settings['enabled'] );
 
     $new_rates = array();
@@ -357,68 +393,48 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
 
         $profile = shikkosa_sdek_rate_profile_code( $rate );
 
-        // Keep CDEK courier untouched; split only pickup/PVZ.
-        if ( ! $split_enabled || ! shikkosa_is_cdek_pickup_rate( $rate ) ) {
-            $new_rates[ $rate_id ] = shikkosa_sdek_apply_profile_overrides( $rate, $settings, $profile );
+        $base_rate = shikkosa_sdek_apply_profile_overrides( $rate, $settings, $profile );
+        $new_rates[ $rate_id ] = $base_rate;
+
+        // Optional second variant for the same detected CDEK profile.
+        if ( ! $split_enabled || '' === $profile ) {
             continue;
         }
 
-        $base_cost = method_exists( $rate, 'get_cost' ) ? (float) $rate->get_cost() : 0.0;
-
-        if ( $is_msk_mo ) {
-            $scenarios = array(
-                array(
-                    'code'             => 'pvz_msk_no_fit',
-                    'label'            => isset( $settings['msk_no_fit_label'] ) ? (string) $settings['msk_no_fit_label'] : 'СДЭК ПВЗ (МСК/МО, без примерки)',
-                    'cost'             => shikkosa_sdek_resolve_cost( $settings, 'msk_no_fit_price', $base_cost, 'msk_no_fit_extra' ),
-                    'price_comment'    => isset( $settings['msk_no_fit_price_comment'] ) ? (string) $settings['msk_no_fit_price_comment'] : '',
-                    'delivery_comment' => isset( $settings['msk_no_fit_delivery_comment'] ) ? (string) $settings['msk_no_fit_delivery_comment'] : '',
-                ),
-                array(
-                    'code'             => 'pvz_msk_fit',
-                    'label'            => isset( $settings['msk_fit_label'] ) ? (string) $settings['msk_fit_label'] : 'СДЭК ПВЗ (МСК/МО, с примеркой)',
-                    'cost'             => shikkosa_sdek_resolve_cost( $settings, 'msk_fit_price', $base_cost, 'msk_fit_extra' ),
-                    'price_comment'    => isset( $settings['msk_fit_price_comment'] ) ? (string) $settings['msk_fit_price_comment'] : '',
-                    'delivery_comment' => isset( $settings['msk_fit_delivery_comment'] ) ? (string) $settings['msk_fit_delivery_comment'] : '',
-                ),
-            );
-        } else {
-            $scenarios = array(
-                array(
-                    'code'             => 'pvz_rf_no_fit',
-                    'label'            => isset( $settings['rf_no_fit_label'] ) ? (string) $settings['rf_no_fit_label'] : 'СДЭК ПВЗ (РФ, без примерки)',
-                    'cost'             => shikkosa_sdek_resolve_cost( $settings, 'rf_no_fit_price', $base_cost, 'rf_no_fit_extra' ),
-                    'price_comment'    => isset( $settings['rf_no_fit_price_comment'] ) ? (string) $settings['rf_no_fit_price_comment'] : '',
-                    'delivery_comment' => isset( $settings['rf_no_fit_delivery_comment'] ) ? (string) $settings['rf_no_fit_delivery_comment'] : '',
-                ),
-                array(
-                    'code'             => 'pvz_rf_fit',
-                    'label'            => isset( $settings['rf_fit_label'] ) ? (string) $settings['rf_fit_label'] : 'СДЭК ПВЗ (РФ, с примеркой)',
-                    'cost'             => shikkosa_sdek_resolve_cost( $settings, 'rf_fit_price', $base_cost, 'rf_fit_extra' ),
-                    'price_comment'    => isset( $settings['rf_fit_price_comment'] ) ? (string) $settings['rf_fit_price_comment'] : '',
-                    'delivery_comment' => isset( $settings['rf_fit_delivery_comment'] ) ? (string) $settings['rf_fit_delivery_comment'] : '',
-                ),
-            );
+        $variant_enabled_key = $profile . '_variant_enabled';
+        if ( 'yes' !== (string) ( $settings[ $variant_enabled_key ] ?? 'no' ) ) {
+            continue;
         }
 
-        foreach ( $scenarios as $scenario ) {
-            $new_id   = (string) $rate_id . '__shk_' . (string) $scenario['code'];
-            $new_cost = isset( $scenario['cost'] ) ? (float) $scenario['cost'] : $base_cost;
-            $new_rate = shikkosa_clone_rate_with_label_and_cost( $rate, $new_id, $scenario['label'], $new_cost );
-            if ( ! empty( $scenario['price_comment'] ) ) {
-                $new_rate->add_meta_data( '_shk_price_comment', (string) $scenario['price_comment'], true );
-            }
-            if ( ! empty( $scenario['delivery_comment'] ) ) {
-                $new_rate->add_meta_data( '_shk_delivery_comment', (string) $scenario['delivery_comment'], true );
-            }
-            $new_rates[ $new_id ] = $new_rate;
+        $base_label = method_exists( $base_rate, 'get_label' ) ? (string) $base_rate->get_label() : ( method_exists( $rate, 'get_label' ) ? (string) $rate->get_label() : '' );
+        $variant_label = trim( (string) ( $settings[ $profile . '_variant_label' ] ?? '' ) );
+        if ( '' === $variant_label ) {
+            $variant_label = $base_label . ' (доп. вариант)';
         }
+
+        $base_cost = method_exists( $base_rate, 'get_cost' ) ? (float) $base_rate->get_cost() : ( method_exists( $rate, 'get_cost' ) ? (float) $rate->get_cost() : 0.0 );
+        $variant_price_raw = trim( (string) ( $settings[ $profile . '_variant_price' ] ?? '' ) );
+        $variant_cost = ( '' !== $variant_price_raw && is_numeric( $variant_price_raw ) ) ? max( 0.0, (float) $variant_price_raw ) : $base_cost;
+
+        $new_id = (string) $rate_id . '__shk_variant_' . $profile;
+        $new_rate = shikkosa_clone_rate_with_label_and_cost( $base_rate, $new_id, $variant_label, $variant_cost );
+
+        $variant_price_comment = trim( (string) ( $settings[ $profile . '_variant_price_comment' ] ?? '' ) );
+        $variant_delivery_comment = trim( (string) ( $settings[ $profile . '_variant_delivery_comment' ] ?? '' ) );
+        if ( '' !== $variant_price_comment ) {
+            $new_rate->add_meta_data( '_shk_price_comment', $variant_price_comment, true );
+        }
+        if ( '' !== $variant_delivery_comment ) {
+            $new_rate->add_meta_data( '_shk_delivery_comment', $variant_delivery_comment, true );
+        }
+
+        $new_rates[ $new_id ] = $new_rate;
     }
 
     if ( 'yes' === (string) $settings['debug_timing'] ) {
         $logger = wc_get_logger();
         $logger->info(
-            '[SHK SDEK] package_rates: in=' . count( $rates ) . ', out=' . count( $new_rates ) . ', split=' . ( $split_enabled ? 'yes' : 'no' ) . ', msk_mo=' . ( $is_msk_mo ? 'yes' : 'no' ) . ', elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms',
+            '[SHK SDEK] package_rates: in=' . count( $rates ) . ', out=' . count( $new_rates ) . ', split=' . ( $split_enabled ? 'yes' : 'no' ) . ', elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms',
             array( 'source' => 'shk-sdek' )
         );
     }
@@ -612,12 +628,6 @@ function shikkosa_sdek_render_wc_shipping_manager() {
         $active_profiles = array_keys( $title_map );
     }
 
-    $split_rows = array(
-        array( 'key' => 'msk_no_fit', 'title' => 'МСК/МО, ПВЗ без примерки' ),
-        array( 'key' => 'msk_fit',    'title' => 'МСК/МО, ПВЗ с примеркой' ),
-        array( 'key' => 'rf_no_fit',  'title' => 'РФ, ПВЗ без примерки' ),
-        array( 'key' => 'rf_fit',     'title' => 'РФ, ПВЗ с примеркой' ),
-    );
     ?>
     <style>
         .shk-sdek-inline-table{width:100%;border-collapse:collapse;margin:10px 0 18px;table-layout:fixed}
@@ -669,12 +679,12 @@ function shikkosa_sdek_render_wc_shipping_manager() {
         </table>
     <?php endif; ?>
 
-    <h3>Split ПВЗ</h3>
+    <h3>Доп. варианты (второй вариант того же метода)</h3>
     <table class="shk-sdek-inline-table" role="presentation">
         <thead>
             <tr>
-                <th style="width:18%">Вариант</th>
-                <th style="width:10%">Добавка</th>
+                <th style="width:18%">Тип</th>
+                <th style="width:8%">Вкл</th>
                 <th style="width:20%">Название</th>
                 <th style="width:10%">Стоимость</th>
                 <th style="width:21%">Комментарий к цене</th>
@@ -682,21 +692,24 @@ function shikkosa_sdek_render_wc_shipping_manager() {
             </tr>
         </thead>
         <tbody>
-        <?php foreach ( $split_rows as $row ) : ?>
-            <?php $k = $row['key']; ?>
+        <?php foreach ( $active_profiles as $profile_code ) : ?>
+            <?php if ( ! isset( $title_map[ $profile_code ] ) ) { continue; } ?>
             <tr>
-                <td><?php echo esc_html( $row['title'] ); ?></td>
-                <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_extra]" value="<?php echo esc_attr( isset( $opt[ $k . '_extra' ] ) ? $opt[ $k . '_extra' ] : '0' ); ?>" /></td>
-                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_label]" value="<?php echo esc_attr( isset( $opt[ $k . '_label' ] ) ? $opt[ $k . '_label' ] : '' ); ?>" /></td>
-                <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_price]" value="<?php echo esc_attr( isset( $opt[ $k . '_price' ] ) ? $opt[ $k . '_price' ] : '' ); ?>" /></td>
-                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_price_comment]" value="<?php echo esc_attr( isset( $opt[ $k . '_price_comment' ] ) ? $opt[ $k . '_price_comment' ] : '' ); ?>" /></td>
-                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_delivery_comment]" value="<?php echo esc_attr( isset( $opt[ $k . '_delivery_comment' ] ) ? $opt[ $k . '_delivery_comment' ] : '' ); ?>" /></td>
+                <td><?php echo esc_html( $title_map[ $profile_code ] ); ?></td>
+                <td>
+                    <label>
+                        <input type="checkbox" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_enabled]" value="yes" <?php checked( isset( $opt[ $profile_code . '_variant_enabled' ] ) ? $opt[ $profile_code . '_variant_enabled' ] : 'no', 'yes' ); ?> />
+                    </label>
+                </td>
+                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_label]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_label' ] ) ? $opt[ $profile_code . '_variant_label' ] : '' ); ?>" /></td>
+                <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_price]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_price' ] ) ? $opt[ $profile_code . '_variant_price' ] : '' ); ?>" /></td>
+                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_price_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_price_comment' ] ) ? $opt[ $profile_code . '_variant_price_comment' ] : '' ); ?>" /></td>
+                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_delivery_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_delivery_comment' ] ) ? $opt[ $profile_code . '_variant_delivery_comment' ] : '' ); ?>" /></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
     </table>
-
-    <p class="description">Если «Стоимость» пустая, используется стандартная стоимость метода (или базовая + добавка для split).</p>
+    <p class="description">Если включить строку, в checkout появится второй вариант этого же метода. Пустая стоимость = цена основного варианта.</p>
     <?php
 }
 
@@ -903,21 +916,21 @@ function shikkosa_sdek_checkout_notes_blocks() {
             'price'    => isset( $opt['cdek_express_door_door_price_comment'] ) ? (string) $opt['cdek_express_door_door_price_comment'] : '',
             'delivery' => isset( $opt['cdek_express_door_door_delivery_comment'] ) ? (string) $opt['cdek_express_door_door_delivery_comment'] : '',
         ),
-        'pvz_msk_no_fit' => array(
-            'price'    => isset( $opt['msk_no_fit_price_comment'] ) ? (string) $opt['msk_no_fit_price_comment'] : '',
-            'delivery' => isset( $opt['msk_no_fit_delivery_comment'] ) ? (string) $opt['msk_no_fit_delivery_comment'] : '',
+        'cdek_door_door_variant' => array(
+            'price'    => isset( $opt['cdek_door_door_variant_price_comment'] ) ? (string) $opt['cdek_door_door_variant_price_comment'] : '',
+            'delivery' => isset( $opt['cdek_door_door_variant_delivery_comment'] ) ? (string) $opt['cdek_door_door_variant_delivery_comment'] : '',
         ),
-        'pvz_msk_fit' => array(
-            'price'    => isset( $opt['msk_fit_price_comment'] ) ? (string) $opt['msk_fit_price_comment'] : '',
-            'delivery' => isset( $opt['msk_fit_delivery_comment'] ) ? (string) $opt['msk_fit_delivery_comment'] : '',
+        'cdek_door_warehouse_variant' => array(
+            'price'    => isset( $opt['cdek_door_warehouse_variant_price_comment'] ) ? (string) $opt['cdek_door_warehouse_variant_price_comment'] : '',
+            'delivery' => isset( $opt['cdek_door_warehouse_variant_delivery_comment'] ) ? (string) $opt['cdek_door_warehouse_variant_delivery_comment'] : '',
         ),
-        'pvz_rf_no_fit' => array(
-            'price'    => isset( $opt['rf_no_fit_price_comment'] ) ? (string) $opt['rf_no_fit_price_comment'] : '',
-            'delivery' => isset( $opt['rf_no_fit_delivery_comment'] ) ? (string) $opt['rf_no_fit_delivery_comment'] : '',
+        'cdek_pickup_variant' => array(
+            'price'    => isset( $opt['cdek_pickup_variant_price_comment'] ) ? (string) $opt['cdek_pickup_variant_price_comment'] : '',
+            'delivery' => isset( $opt['cdek_pickup_variant_delivery_comment'] ) ? (string) $opt['cdek_pickup_variant_delivery_comment'] : '',
         ),
-        'pvz_rf_fit' => array(
-            'price'    => isset( $opt['rf_fit_price_comment'] ) ? (string) $opt['rf_fit_price_comment'] : '',
-            'delivery' => isset( $opt['rf_fit_delivery_comment'] ) ? (string) $opt['rf_fit_delivery_comment'] : '',
+        'cdek_express_door_door_variant' => array(
+            'price'    => isset( $opt['cdek_express_door_door_variant_price_comment'] ) ? (string) $opt['cdek_express_door_door_variant_price_comment'] : '',
+            'delivery' => isset( $opt['cdek_express_door_door_variant_delivery_comment'] ) ? (string) $opt['cdek_express_door_door_variant_delivery_comment'] : '',
         ),
     );
     ?>
@@ -927,10 +940,10 @@ function shikkosa_sdek_checkout_notes_blocks() {
 
       function detectCode(inputValue, inputId) {
         var hay = (String(inputValue || '') + ' ' + String(inputId || '')).toLowerCase();
-        if (hay.indexOf('pvz_msk_no_fit') !== -1) return 'pvz_msk_no_fit';
-        if (hay.indexOf('pvz_msk_fit') !== -1) return 'pvz_msk_fit';
-        if (hay.indexOf('pvz_rf_no_fit') !== -1) return 'pvz_rf_no_fit';
-        if (hay.indexOf('pvz_rf_fit') !== -1) return 'pvz_rf_fit';
+        if (hay.indexOf('__shk_variant_cdek_express_door_door') !== -1) return 'cdek_express_door_door_variant';
+        if (hay.indexOf('__shk_variant_cdek_door_warehouse') !== -1) return 'cdek_door_warehouse_variant';
+        if (hay.indexOf('__shk_variant_cdek_pickup') !== -1) return 'cdek_pickup_variant';
+        if (hay.indexOf('__shk_variant_cdek_door_door') !== -1) return 'cdek_door_door_variant';
         if (hay.indexOf('экспресс') !== -1 || hay.indexOf('express') !== -1) return 'cdek_express_door_door';
         if (hay.indexOf('двер') !== -1 && hay.indexOf('склад') !== -1) return 'cdek_door_warehouse';
         if (hay.indexOf('пвз') !== -1 || hay.indexOf('пункт') !== -1 || hay.indexOf('pickup') !== -1 || hay.indexOf('самовывоз') !== -1) return 'cdek_pickup';
