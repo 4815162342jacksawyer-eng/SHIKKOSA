@@ -756,10 +756,8 @@ function shk_parser_import_product_row( array $row, $run_id ) {
     $created = false;
 
     if ( $product_id ) {
-        $product = wc_get_product( $product_id );
-        if ( ! $product ) {
-            $product = new WC_Product_Simple( $product_id );
-        }
+        // Force existing products into simple type in parser flow.
+        $product = new WC_Product_Simple( $product_id );
     } else {
         $product = new WC_Product_Simple();
         $created = true;
@@ -874,6 +872,43 @@ function shk_parser_normalize_prices_from_row( array $row ) {
     ];
 }
 
+function shk_parser_row_meta_value( array $row, $key ) {
+    return trim( (string) ( $row[ $key ] ?? '' ) );
+}
+
+function shk_parser_ensure_product_simple_type( $product_id ) {
+    $product_id = (int) $product_id;
+    if ( $product_id <= 0 ) {
+        return [
+            'changed' => false,
+            'product' => null,
+        ];
+    }
+
+    $current = wc_get_product( $product_id );
+    if ( ! $current ) {
+        return [
+            'changed' => false,
+            'product' => null,
+        ];
+    }
+
+    $was_simple = $current->is_type( 'simple' );
+    if ( ! $was_simple ) {
+        wp_set_object_terms( $product_id, 'simple', 'product_type', false );
+    }
+
+    $simple = new WC_Product_Simple( $product_id );
+    $simple->set_manage_stock( false );
+    $simple->set_stock_status( 'instock' );
+    $simple->save();
+
+    return [
+        'changed' => ! $was_simple,
+        'product' => $simple,
+    ];
+}
+
 function shk_parser_repair_from_run( $run_id ) {
     $run_id = sanitize_text_field( (string) $run_id );
     if ( '' === $run_id ) {
@@ -894,11 +929,15 @@ function shk_parser_repair_from_run( $run_id ) {
         'run_id'                  => $run_id,
         'products_scanned'        => 0,
         'products_matched'        => 0,
+        'converted_to_simple'     => 0,
         'prices_updated'          => 0,
         'prices_swapped_detected' => 0,
+        'meta_products_filled'    => 0,
+        'meta_fields_filled'      => 0,
         'related_products'        => 0,
         'related_updated'         => 0,
         'related_cleared'         => 0,
+        'related_slugs_updated'   => 0,
     ];
 
     $rows = shk_parser_read_csv_assoc( $products_path );
@@ -919,9 +958,45 @@ function shk_parser_repair_from_run( $run_id ) {
         $stats['products_matched']++;
         $product_ids_from_run[ $product_id ] = true;
 
-        $product = wc_get_product( $product_id );
+        $simple_result = shk_parser_ensure_product_simple_type( $product_id );
+        if ( ! empty( $simple_result['changed'] ) ) {
+            $stats['converted_to_simple']++;
+        }
+        $product = isset( $simple_result['product'] ) ? $simple_result['product'] : null;
         if ( ! $product ) {
             continue;
+        }
+
+        $meta_filled_for_product = false;
+        $source_url = shk_parser_row_meta_value( $row, 'source_url' );
+        if ( '' === $source_url && '' !== $source_slug ) {
+            $source_url = 'https://shikkosa.ru' . $source_slug;
+        }
+        $meta_fill_map = [
+            '_shk_source_slug'         => $source_slug,
+            '_shk_source_url'          => $source_url,
+            '_shk_color_family_id'     => shk_parser_row_meta_value( $row, 'color_family_id' ),
+            '_shk_color_family_members'=> shk_parser_row_meta_value( $row, 'color_family_members' ),
+            '_shk_color'               => shk_parser_row_meta_value( $row, 'color' ),
+            '_shk_sizes'               => shk_parser_row_meta_value( $row, 'sizes' ),
+            '_shk_care'                => shk_parser_row_meta_value( $row, 'care' ),
+        ];
+
+        foreach ( $meta_fill_map as $meta_key => $meta_value ) {
+            if ( '' === $meta_value ) {
+                continue;
+            }
+            $existing_value = trim( (string) get_post_meta( $product_id, $meta_key, true ) );
+            if ( '' !== $existing_value ) {
+                continue;
+            }
+            update_post_meta( $product_id, $meta_key, $meta_value );
+            $stats['meta_fields_filled']++;
+            $meta_filled_for_product = true;
+        }
+        update_post_meta( $product_id, '_shk_import_run_id', $run_id );
+        if ( $meta_filled_for_product ) {
+            $stats['meta_products_filled']++;
         }
 
         $normalized_prices = shk_parser_normalize_prices_from_row( $row );
@@ -958,6 +1033,7 @@ function shk_parser_repair_from_run( $run_id ) {
     }
 
     $related_bucket = [];
+    $related_slug_bucket = [];
     $related_path = $run['files']['related'] ?? '';
     if ( $related_path && file_exists( $related_path ) ) {
         $related_rows = shk_parser_read_csv_assoc( $related_path );
@@ -978,6 +1054,11 @@ function shk_parser_repair_from_run( $run_id ) {
                 $related_bucket[ $product_id ] = [];
             }
             $related_bucket[ $product_id ][] = $related_id;
+
+            if ( ! isset( $related_slug_bucket[ $product_id ] ) ) {
+                $related_slug_bucket[ $product_id ] = [];
+            }
+            $related_slug_bucket[ $product_id ][] = $related_slug;
         }
     }
 
@@ -1003,6 +1084,20 @@ function shk_parser_repair_from_run( $run_id ) {
                 update_post_meta( $product_id, '_shk_related_ids', $new_related_ids );
             }
             $stats['related_updated']++;
+        }
+
+        $new_related_slugs = isset( $related_slug_bucket[ $product_id ] ) ? (array) $related_slug_bucket[ $product_id ] : [];
+        $new_related_slugs = array_values( array_unique( array_filter( array_map( 'trim', $new_related_slugs ) ) ) );
+        $old_related_slugs = shikkosa_parse_pipe_values_local( (string) get_post_meta( $product_id, '_shk_related_slugs', true ) );
+        sort( $new_related_slugs );
+        sort( $old_related_slugs );
+        if ( $old_related_slugs !== $new_related_slugs ) {
+            if ( empty( $new_related_slugs ) ) {
+                delete_post_meta( $product_id, '_shk_related_slugs' );
+            } else {
+                update_post_meta( $product_id, '_shk_related_slugs', implode( '|', $new_related_slugs ) );
+            }
+            $stats['related_slugs_updated']++;
         }
 
         $product = wc_get_product( $product_id );

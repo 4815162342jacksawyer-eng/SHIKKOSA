@@ -844,11 +844,15 @@ function shk_parser_render_admin_page() {
                     `run_id: ${r.run_id || run_id}\n` +
                     `Товаров в products.csv: ${r.products_scanned || 0}\n` +
                     `Найдено в Woo: ${r.products_matched || 0}\n` +
+                    `Переведено в simple: ${r.converted_to_simple || 0}\n` +
                     `Обновлено цен: ${r.prices_updated || 0}\n` +
                     `Найдено перевернутых цен: ${r.prices_swapped_detected || 0}\n` +
+                    `Товаров с дозаполненной метой: ${r.meta_products_filled || 0}\n` +
+                    `Заполнено meta-полей: ${r.meta_fields_filled || 0}\n` +
                     `Товаров с пересборкой related: ${r.related_products || 0}\n` +
                     `Обновлено related: ${r.related_updated || 0}\n` +
-                    `Очищено related: ${r.related_cleared || 0}`
+                    `Очищено related: ${r.related_cleared || 0}\n` +
+                    `Обновлено related_slugs: ${r.related_slugs_updated || 0}`
                 );
                 await refreshState();
             }
