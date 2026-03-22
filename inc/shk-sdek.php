@@ -19,6 +19,7 @@ function shikkosa_sdek_settings_default() {
     $defaults = array(
         'enabled'            => 'yes',
         'debug_timing'       => 'no',
+        'show_all_before_address' => 'yes',
         'cdek_door_door_label'   => '',
         'cdek_door_door_price'   => '',
         'cdek_door_door_price_comment' => '',
@@ -95,6 +96,7 @@ function shikkosa_sdek_settings_sanitize( $input ) {
     $out = wp_parse_args( $input, $defaults );
     $out['enabled'] = ( isset( $input['enabled'] ) && 'yes' === (string) $input['enabled'] ) ? 'yes' : 'no';
     $out['debug_timing'] = ( isset( $input['debug_timing'] ) && 'yes' === (string) $input['debug_timing'] ) ? 'yes' : 'no';
+    $out['show_all_before_address'] = ( isset( $input['show_all_before_address'] ) && 'yes' === (string) $input['show_all_before_address'] ) ? 'yes' : 'no';
 
     foreach ( array(
         'cdek_door_door_label',
@@ -424,6 +426,122 @@ function shikkosa_sdek_resolve_cost( $settings, $price_key, $base_cost, $extra_k
     return max( 0.0, (float) $base_cost + $extra );
 }
 
+function shikkosa_sdek_has_destination_address( $package ) {
+    $dest = isset( $package['destination'] ) && is_array( $package['destination'] ) ? $package['destination'] : array();
+    $city = isset( $dest['city'] ) ? trim( (string) $dest['city'] ) : '';
+    $address1 = isset( $dest['address_1'] ) ? trim( (string) $dest['address_1'] ) : '';
+    return ( '' !== $city || '' !== $address1 );
+}
+
+function shikkosa_sdek_synthetic_rate( $rate_id, $label, $cost ) {
+    return new WC_Shipping_Rate(
+        (string) $rate_id,
+        (string) $label,
+        (float) $cost,
+        array(),
+        'official_cdek',
+        0
+    );
+}
+
+function shikkosa_sdek_build_prerates_without_address( $rates, $settings ) {
+    $title_map = shikkosa_sdek_profile_titles();
+    $active_profiles = shikkosa_sdek_detect_active_general_profiles();
+    if ( empty( $active_profiles ) ) {
+        $active_profiles = array_keys( $title_map );
+    }
+
+    $new_rates = array();
+    $source_by_profile = array();
+    $first_cdek_source = null;
+
+    foreach ( $rates as $rate_id => $rate ) {
+        if ( ! is_object( $rate ) || ! is_a( $rate, 'WC_Shipping_Rate' ) ) {
+            $new_rates[ $rate_id ] = $rate;
+            continue;
+        }
+        if ( ! shikkosa_is_cdek_rate( $rate ) ) {
+            $new_rates[ $rate_id ] = $rate;
+            continue;
+        }
+
+        if ( null === $first_cdek_source ) {
+            $first_cdek_source = $rate;
+        }
+        $profile = shikkosa_sdek_rate_profile_code( $rate );
+        if ( '' !== $profile && ! isset( $source_by_profile[ $profile ] ) ) {
+            $source_by_profile[ $profile ] = $rate;
+        }
+    }
+
+    foreach ( $active_profiles as $profile ) {
+        if ( ! isset( $title_map[ $profile ] ) ) {
+            continue;
+        }
+
+        $source = isset( $source_by_profile[ $profile ] ) ? $source_by_profile[ $profile ] : $first_cdek_source;
+        $base_label = '';
+        $base_cost = 0.0;
+
+        if ( $source && is_a( $source, 'WC_Shipping_Rate' ) ) {
+            $base_label = method_exists( $source, 'get_label' ) ? (string) $source->get_label() : '';
+            $base_cost = method_exists( $source, 'get_cost' ) ? (float) $source->get_cost() : 0.0;
+        }
+
+        $custom_label = isset( $settings[ $profile . '_label' ] ) ? trim( (string) $settings[ $profile . '_label' ] ) : '';
+        $label = '' !== $custom_label ? $custom_label : ( '' !== $base_label ? $base_label : $title_map[ $profile ] );
+        $fixed_price = isset( $settings[ $profile . '_price' ] ) ? trim( (string) $settings[ $profile . '_price' ] ) : '';
+        $cost = ( '' !== $fixed_price && is_numeric( $fixed_price ) ) ? max( 0.0, (float) $fixed_price ) : max( 0.0, (float) $base_cost );
+
+        $base_id = 'shk_pre_cdek_' . $profile;
+        if ( $source && is_a( $source, 'WC_Shipping_Rate' ) ) {
+            $base_rate = shikkosa_clone_rate_with_label_and_cost( $source, $base_id, $label, $cost );
+        } else {
+            $base_rate = shikkosa_sdek_synthetic_rate( $base_id, $label, $cost );
+        }
+
+        $price_comment = isset( $settings[ $profile . '_price_comment' ] ) ? trim( (string) $settings[ $profile . '_price_comment' ] ) : '';
+        $delivery_comment = isset( $settings[ $profile . '_delivery_comment' ] ) ? trim( (string) $settings[ $profile . '_delivery_comment' ] ) : '';
+        if ( '' !== $price_comment ) {
+            $base_rate->add_meta_data( '_shk_price_comment', $price_comment, true );
+        }
+        if ( '' !== $delivery_comment ) {
+            $base_rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
+        }
+
+        $new_rates[ $base_id ] = $base_rate;
+
+        $variants = shikkosa_sdek_get_profile_variants( $settings, $profile );
+        foreach ( $variants as $idx => $variant_data ) {
+            $variant_num = (int) $idx + 1;
+            $variant_label = trim( (string) ( $variant_data['label'] ?? '' ) );
+            if ( '' === $variant_label ) {
+                $variant_label = $label . ' (доп. вариант ' . $variant_num . ')';
+            }
+            $variant_price_raw = trim( (string) ( $variant_data['price'] ?? '' ) );
+            $variant_cost = ( '' !== $variant_price_raw && is_numeric( $variant_price_raw ) ) ? max( 0.0, (float) $variant_price_raw ) : $cost;
+
+            $variant_id = $base_id . '__shk_variant_' . $profile . '_' . $variant_num;
+            $variant_rate = $source && is_a( $source, 'WC_Shipping_Rate' )
+                ? shikkosa_clone_rate_with_label_and_cost( $source, $variant_id, $variant_label, $variant_cost )
+                : shikkosa_sdek_synthetic_rate( $variant_id, $variant_label, $variant_cost );
+
+            $variant_price_comment = trim( (string) ( $variant_data['price_comment'] ?? '' ) );
+            $variant_delivery_comment = trim( (string) ( $variant_data['delivery_comment'] ?? '' ) );
+            if ( '' !== $variant_price_comment ) {
+                $variant_rate->add_meta_data( '_shk_price_comment', $variant_price_comment, true );
+            }
+            if ( '' !== $variant_delivery_comment ) {
+                $variant_rate->add_meta_data( '_shk_delivery_comment', $variant_delivery_comment, true );
+            }
+
+            $new_rates[ $variant_id ] = $variant_rate;
+        }
+    }
+
+    return $new_rates;
+}
+
 add_filter( 'woocommerce_package_rates', 'shikkosa_split_cdek_pickup_rates', 120, 2 );
 function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     $settings = shikkosa_sdek_settings();
@@ -438,6 +556,22 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     }
 
     $split_enabled = ( 'yes' === (string) $settings['enabled'] );
+    $show_all_before_address = ( 'yes' === (string) ( $settings['show_all_before_address'] ?? 'yes' ) );
+    $has_address = shikkosa_sdek_has_destination_address( $package );
+
+    if ( $show_all_before_address && ! $has_address ) {
+        $pre_rates = shikkosa_sdek_build_prerates_without_address( $rates, $settings );
+        if ( ! empty( $pre_rates ) ) {
+            if ( 'yes' === (string) $settings['debug_timing'] ) {
+                $logger = wc_get_logger();
+                $logger->info(
+                    '[SHK SDEK] package_rates: preaddress mode enabled, in=' . count( $rates ) . ', out=' . count( $pre_rates ) . ', elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms',
+                    array( 'source' => 'shk-sdek' )
+                );
+            }
+            return $pre_rates;
+        }
+    }
 
     $new_rates = array();
 
@@ -980,6 +1114,12 @@ function shikkosa_sdek_render_wc_shipping_manager() {
             Включить лог времени SHK СДЭК (WooCommerce -> Статус -> Логи -> source: <code>shk-sdek</code>)
         </label>
     </p>
+    <p>
+        <label>
+            <input type="checkbox" name="shikkosa_sdek_settings[show_all_before_address]" value="yes" <?php checked( isset( $opt['show_all_before_address'] ) ? $opt['show_all_before_address'] : 'yes', 'yes' ); ?> />
+            Показывать все варианты SHK СДЭК до ввода адреса (город/улица). После ввода адреса включается обычный расчёт СДЭК и карта.
+        </label>
+    </p>
 
     <h3>Активные варианты СДЭК</h3>
     <?php if ( $detected_empty ) : ?>
@@ -1320,6 +1460,12 @@ function shikkosa_sdek_settings_page() {
                 <label>
                     <input type="checkbox" name="shikkosa_sdek_settings[enabled]" value="yes" <?php checked( $opt['enabled'], 'yes' ); ?> />
                     Включить разделение ПВЗ
+                </label>
+            </div>
+            <div class="shk-sdek-inline-compact">
+                <label>
+                    <input type="checkbox" name="shikkosa_sdek_settings[show_all_before_address]" value="yes" <?php checked( isset( $opt['show_all_before_address'] ) ? $opt['show_all_before_address'] : 'yes', 'yes' ); ?> />
+                    Показывать все варианты SHK СДЭК до ввода адреса
                 </label>
             </div>
 
