@@ -26,6 +26,14 @@ function shikkosa_sdek_settings_default() {
         'msk_fit_price'      => '',
         'rf_no_fit_price'    => '',
         'rf_fit_price'       => '',
+        'msk_no_fit_price_comment' => '',
+        'msk_fit_price_comment'    => '',
+        'rf_no_fit_price_comment'  => '',
+        'rf_fit_price_comment'     => '',
+        'msk_no_fit_delivery_comment' => '',
+        'msk_fit_delivery_comment'    => '',
+        'rf_no_fit_delivery_comment'  => '',
+        'rf_fit_delivery_comment'     => '',
         'msk_no_fit_extra'   => '0',
         'msk_fit_extra'      => '0',
         'rf_no_fit_extra'    => '0',
@@ -72,6 +80,20 @@ function shikkosa_sdek_settings_sanitize( $input ) {
             continue;
         }
         $out[ $key ] = is_scalar( $value ) ? (string) wc_format_decimal( (string) $value ) : '';
+    }
+
+    foreach ( array(
+        'msk_no_fit_price_comment',
+        'msk_fit_price_comment',
+        'rf_no_fit_price_comment',
+        'rf_fit_price_comment',
+        'msk_no_fit_delivery_comment',
+        'msk_fit_delivery_comment',
+        'rf_no_fit_delivery_comment',
+        'rf_fit_delivery_comment',
+    ) as $key ) {
+        $value = isset( $input[ $key ] ) ? $input[ $key ] : '';
+        $out[ $key ] = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : '';
     }
 
     foreach ( array( 'msk_no_fit_extra', 'msk_fit_extra', 'rf_no_fit_extra', 'rf_fit_extra' ) as $key ) {
@@ -223,27 +245,35 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
         if ( $is_msk_mo ) {
             $scenarios = array(
                 array(
-                    'code'  => 'pvz_msk_no_fit',
-                    'label' => isset( $settings['msk_no_fit_label'] ) ? (string) $settings['msk_no_fit_label'] : 'СДЭК ПВЗ (МСК/МО, без примерки)',
-                    'cost'  => shikkosa_sdek_resolve_cost( $settings, 'msk_no_fit_price', $base_cost, 'msk_no_fit_extra' ),
+                    'code'             => 'pvz_msk_no_fit',
+                    'label'            => isset( $settings['msk_no_fit_label'] ) ? (string) $settings['msk_no_fit_label'] : 'СДЭК ПВЗ (МСК/МО, без примерки)',
+                    'cost'             => shikkosa_sdek_resolve_cost( $settings, 'msk_no_fit_price', $base_cost, 'msk_no_fit_extra' ),
+                    'price_comment'    => isset( $settings['msk_no_fit_price_comment'] ) ? (string) $settings['msk_no_fit_price_comment'] : '',
+                    'delivery_comment' => isset( $settings['msk_no_fit_delivery_comment'] ) ? (string) $settings['msk_no_fit_delivery_comment'] : '',
                 ),
                 array(
-                    'code'  => 'pvz_msk_fit',
-                    'label' => isset( $settings['msk_fit_label'] ) ? (string) $settings['msk_fit_label'] : 'СДЭК ПВЗ (МСК/МО, с примеркой)',
-                    'cost'  => shikkosa_sdek_resolve_cost( $settings, 'msk_fit_price', $base_cost, 'msk_fit_extra' ),
+                    'code'             => 'pvz_msk_fit',
+                    'label'            => isset( $settings['msk_fit_label'] ) ? (string) $settings['msk_fit_label'] : 'СДЭК ПВЗ (МСК/МО, с примеркой)',
+                    'cost'             => shikkosa_sdek_resolve_cost( $settings, 'msk_fit_price', $base_cost, 'msk_fit_extra' ),
+                    'price_comment'    => isset( $settings['msk_fit_price_comment'] ) ? (string) $settings['msk_fit_price_comment'] : '',
+                    'delivery_comment' => isset( $settings['msk_fit_delivery_comment'] ) ? (string) $settings['msk_fit_delivery_comment'] : '',
                 ),
             );
         } else {
             $scenarios = array(
                 array(
-                    'code'  => 'pvz_rf_no_fit',
-                    'label' => isset( $settings['rf_no_fit_label'] ) ? (string) $settings['rf_no_fit_label'] : 'СДЭК ПВЗ (РФ, без примерки)',
-                    'cost'  => shikkosa_sdek_resolve_cost( $settings, 'rf_no_fit_price', $base_cost, 'rf_no_fit_extra' ),
+                    'code'             => 'pvz_rf_no_fit',
+                    'label'            => isset( $settings['rf_no_fit_label'] ) ? (string) $settings['rf_no_fit_label'] : 'СДЭК ПВЗ (РФ, без примерки)',
+                    'cost'             => shikkosa_sdek_resolve_cost( $settings, 'rf_no_fit_price', $base_cost, 'rf_no_fit_extra' ),
+                    'price_comment'    => isset( $settings['rf_no_fit_price_comment'] ) ? (string) $settings['rf_no_fit_price_comment'] : '',
+                    'delivery_comment' => isset( $settings['rf_no_fit_delivery_comment'] ) ? (string) $settings['rf_no_fit_delivery_comment'] : '',
                 ),
                 array(
-                    'code'  => 'pvz_rf_fit',
-                    'label' => isset( $settings['rf_fit_label'] ) ? (string) $settings['rf_fit_label'] : 'СДЭК ПВЗ (РФ, с примеркой)',
-                    'cost'  => shikkosa_sdek_resolve_cost( $settings, 'rf_fit_price', $base_cost, 'rf_fit_extra' ),
+                    'code'             => 'pvz_rf_fit',
+                    'label'            => isset( $settings['rf_fit_label'] ) ? (string) $settings['rf_fit_label'] : 'СДЭК ПВЗ (РФ, с примеркой)',
+                    'cost'             => shikkosa_sdek_resolve_cost( $settings, 'rf_fit_price', $base_cost, 'rf_fit_extra' ),
+                    'price_comment'    => isset( $settings['rf_fit_price_comment'] ) ? (string) $settings['rf_fit_price_comment'] : '',
+                    'delivery_comment' => isset( $settings['rf_fit_delivery_comment'] ) ? (string) $settings['rf_fit_delivery_comment'] : '',
                 ),
             );
         }
@@ -251,7 +281,14 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
         foreach ( $scenarios as $scenario ) {
             $new_id   = (string) $rate_id . '__shk_' . (string) $scenario['code'];
             $new_cost = isset( $scenario['cost'] ) ? (float) $scenario['cost'] : $base_cost;
-            $new_rates[ $new_id ] = shikkosa_clone_rate_with_label_and_cost( $rate, $new_id, $scenario['label'], $new_cost );
+            $new_rate = shikkosa_clone_rate_with_label_and_cost( $rate, $new_id, $scenario['label'], $new_cost );
+            if ( ! empty( $scenario['price_comment'] ) ) {
+                $new_rate->add_meta_data( '_shk_price_comment', (string) $scenario['price_comment'], true );
+            }
+            if ( ! empty( $scenario['delivery_comment'] ) ) {
+                $new_rate->add_meta_data( '_shk_delivery_comment', (string) $scenario['delivery_comment'], true );
+            }
+            $new_rates[ $new_id ] = $new_rate;
         }
     }
 
@@ -340,12 +377,28 @@ function shikkosa_sdek_settings_page() {
                     <td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_no_fit_price]" value="<?php echo esc_attr( $opt['msk_no_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
                 </tr>
                 <tr>
+                    <th scope="row">МСК/МО, без примерки: комментарий к цене</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_no_fit_price_comment]" value="<?php echo esc_attr( $opt['msk_no_fit_price_comment'] ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row">МСК/МО, без примерки: комментарий по сроку/условиям</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_no_fit_delivery_comment]" value="<?php echo esc_attr( $opt['msk_no_fit_delivery_comment'] ); ?>" /></td>
+                </tr>
+                <tr>
                     <th scope="row">МСК/МО, с примеркой: название</th>
                     <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_fit_label]" value="<?php echo esc_attr( $opt['msk_fit_label'] ); ?>" /></td>
                 </tr>
                 <tr>
                     <th scope="row">МСК/МО, с примеркой: стоимость</th>
                     <td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_fit_price]" value="<?php echo esc_attr( $opt['msk_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
+                </tr>
+                <tr>
+                    <th scope="row">МСК/МО, с примеркой: комментарий к цене</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_fit_price_comment]" value="<?php echo esc_attr( $opt['msk_fit_price_comment'] ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row">МСК/МО, с примеркой: комментарий по сроку/условиям</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_fit_delivery_comment]" value="<?php echo esc_attr( $opt['msk_fit_delivery_comment'] ); ?>" /></td>
                 </tr>
                 <tr>
                     <th scope="row">РФ, без примерки: название</th>
@@ -356,12 +409,28 @@ function shikkosa_sdek_settings_page() {
                     <td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_no_fit_price]" value="<?php echo esc_attr( $opt['rf_no_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
                 </tr>
                 <tr>
+                    <th scope="row">РФ, без примерки: комментарий к цене</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_no_fit_price_comment]" value="<?php echo esc_attr( $opt['rf_no_fit_price_comment'] ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row">РФ, без примерки: комментарий по сроку/условиям</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_no_fit_delivery_comment]" value="<?php echo esc_attr( $opt['rf_no_fit_delivery_comment'] ); ?>" /></td>
+                </tr>
+                <tr>
                     <th scope="row">РФ, с примеркой: название</th>
                     <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_fit_label]" value="<?php echo esc_attr( $opt['rf_fit_label'] ); ?>" /></td>
                 </tr>
                 <tr>
                     <th scope="row">РФ, с примеркой: стоимость</th>
                     <td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_fit_price]" value="<?php echo esc_attr( $opt['rf_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
+                </tr>
+                <tr>
+                    <th scope="row">РФ, с примеркой: комментарий к цене</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_fit_price_comment]" value="<?php echo esc_attr( $opt['rf_fit_price_comment'] ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row">РФ, с примеркой: комментарий по сроку/условиям</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_fit_delivery_comment]" value="<?php echo esc_attr( $opt['rf_fit_delivery_comment'] ); ?>" /></td>
                 </tr>
             </table>
             <?php submit_button(); ?>
@@ -377,5 +446,99 @@ function shikkosa_sdek_settings_page() {
             <li>После заказа в админке у заказа будут мета: <code>_shk_sdek_fitting</code> и <code>_shk_sdek_shipping_label</code>.</li>
         </ol>
     </div>
+    <?php
+}
+
+add_action( 'wp_footer', 'shikkosa_sdek_checkout_notes_blocks', 130 );
+function shikkosa_sdek_checkout_notes_blocks() {
+    if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || is_order_received_page() ) {
+        return;
+    }
+
+    $opt = shikkosa_sdek_settings();
+    $notes = array(
+        'pvz_msk_no_fit' => array(
+            'price'    => isset( $opt['msk_no_fit_price_comment'] ) ? (string) $opt['msk_no_fit_price_comment'] : '',
+            'delivery' => isset( $opt['msk_no_fit_delivery_comment'] ) ? (string) $opt['msk_no_fit_delivery_comment'] : '',
+        ),
+        'pvz_msk_fit' => array(
+            'price'    => isset( $opt['msk_fit_price_comment'] ) ? (string) $opt['msk_fit_price_comment'] : '',
+            'delivery' => isset( $opt['msk_fit_delivery_comment'] ) ? (string) $opt['msk_fit_delivery_comment'] : '',
+        ),
+        'pvz_rf_no_fit' => array(
+            'price'    => isset( $opt['rf_no_fit_price_comment'] ) ? (string) $opt['rf_no_fit_price_comment'] : '',
+            'delivery' => isset( $opt['rf_no_fit_delivery_comment'] ) ? (string) $opt['rf_no_fit_delivery_comment'] : '',
+        ),
+        'pvz_rf_fit' => array(
+            'price'    => isset( $opt['rf_fit_price_comment'] ) ? (string) $opt['rf_fit_price_comment'] : '',
+            'delivery' => isset( $opt['rf_fit_delivery_comment'] ) ? (string) $opt['rf_fit_delivery_comment'] : '',
+        ),
+    );
+    ?>
+    <script>
+    (function () {
+      var notes = <?php echo wp_json_encode( $notes ); ?>;
+
+      function detectCode(inputValue, inputId) {
+        var hay = (String(inputValue || '') + ' ' + String(inputId || '')).toLowerCase();
+        if (hay.indexOf('pvz_msk_no_fit') !== -1) return 'pvz_msk_no_fit';
+        if (hay.indexOf('pvz_msk_fit') !== -1) return 'pvz_msk_fit';
+        if (hay.indexOf('pvz_rf_no_fit') !== -1) return 'pvz_rf_no_fit';
+        if (hay.indexOf('pvz_rf_fit') !== -1) return 'pvz_rf_fit';
+        return '';
+      }
+
+      function applyNotes() {
+        var options = document.querySelectorAll('.wc-block-checkout__shipping-option .wc-block-components-radio-control__option');
+        if (!options.length) return;
+
+        options.forEach(function (opt) {
+          var input = opt.querySelector('.wc-block-components-radio-control__input');
+          if (!input) return;
+
+          var code = detectCode(input.value, input.id);
+          if (!code || !notes[code]) return;
+
+          var noteData = notes[code];
+          var layout = opt.querySelector('.wc-block-components-radio-control__option-layout');
+          if (!layout) return;
+
+          var existing = opt.querySelector('.shk-sdek-note');
+          if (!existing) {
+            existing = document.createElement('div');
+            existing.className = 'shk-sdek-note';
+            layout.appendChild(existing);
+          }
+
+          var price = (noteData.price || '').trim();
+          var delivery = (noteData.delivery || '').trim();
+
+          if (!price && !delivery) {
+            existing.innerHTML = '';
+            return;
+          }
+
+          var html = '';
+          if (price) {
+            html += '<div class="shk-sdek-note__price">' + price.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+          }
+          if (delivery) {
+            html += '<div class="shk-sdek-note__delivery">' + delivery.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+          }
+          existing.innerHTML = html;
+        });
+      }
+
+      var t = 0;
+      var iv = setInterval(function () {
+        t++;
+        applyNotes();
+        if (t > 80) clearInterval(iv);
+      }, 250);
+
+      document.addEventListener('change', applyNotes);
+      document.addEventListener('wc-blocks_checkout_update', applyNotes);
+    })();
+    </script>
     <?php
 }

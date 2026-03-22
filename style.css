@@ -266,6 +266,23 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
     font-weight: 400;
 }
 
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .shk-sdek-note {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .shk-sdek-note__price {
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .shk-sdek-note__delivery {
+    font-size: 12px;
+    line-height: 1.2;
+    font-style: italic;
+    margin-top: 2px;
+}
+
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-checkout-place-order-button {
     background: var(--e-global-color-primary);
     border: 0;
