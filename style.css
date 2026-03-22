@@ -251,6 +251,8 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
     box-shadow: none !important;
     cursor: pointer;
     position: relative;
+    left: 0px;
+    top: 20px;
     outline: none !important;
 }
 
