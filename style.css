@@ -1389,7 +1389,7 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     position: relative !important;
     display: inline-flex !important;
     align-items: center !important;
-    top: -7px !important;
+    top: 0 !important;
 }
 .catalog-native-menu a.wishlist_products_counter.top_wishlist-heart::before {
     font-size: 24px !important;
@@ -1414,6 +1414,17 @@ a.wishlist_products_counter.top_wishlist-heart::before {
 .catalog-native-menu .elementor-menu-cart__toggle .elementor-button-icon-qty {
     top: 50% !important;
     margin-left: 3px !important;
+}
+.catalog-native-menu .e-n-menu-item:has(a.wishlist_products_counter.top_wishlist-heart) .e-n-menu-title-text {
+    position: relative !important;
+    top: -2px !important;
+}
+.catalog-native-menu .e-n-menu-item:has(.elementor-menu-cart__toggle) .e-n-menu-title-text {
+    position: relative !important;
+    top: 0 !important;
+}
+.catalog-native-menu span.wishlist_products_counter_number {
+    top: 62% !important;
 }
 .catalog-native-menu .e-n-menu-title,
 .catalog-native-menu .elementor-menu-cart__toggle,
