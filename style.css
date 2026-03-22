@@ -1401,7 +1401,7 @@ a.wishlist_products_counter.top_wishlist-heart::before {
 .catalog-native-menu span.wishlist_products_counter_number,
 .catalog-native-menu .elementor-button-icon-qty {
     position: absolute !important;
-    top: 50% !important;
+    top: 56% !important;
     left: 100% !important;
     right: auto !important;
     margin-left: 5px !important;
