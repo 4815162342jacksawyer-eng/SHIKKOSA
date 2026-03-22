@@ -831,6 +831,7 @@ function shk_parser_import_product_row( array $row, $run_id ) {
     update_post_meta( $saved_id, '_shk_import_run_id', $run_id );
     update_post_meta( $saved_id, '_shk_last_category_slugs', (string) ( $row['category_slugs'] ?? '' ) );
     update_post_meta( $saved_id, '_shk_last_categories', (string) ( $row['categories'] ?? '' ) );
+    shk_parser_sync_display_price_meta( (int) $saved_id, $regular_price, $sale_price );
 
     return [
         'product_id' => (int) $saved_id,
@@ -919,6 +920,70 @@ function shk_parser_parse_price_scalar( $raw ) {
     return (float) $raw;
 }
 
+function shk_parser_sync_display_price_meta( $product_id, $regular_price_raw = '', $sale_price_raw = '' ) {
+    $product_id = (int) $product_id;
+    if ( $product_id <= 0 ) {
+        return false;
+    }
+
+    $regular_source = '' !== (string) $regular_price_raw ? $regular_price_raw : get_post_meta( $product_id, '_regular_price', true );
+    $sale_source = '' !== (string) $sale_price_raw ? $sale_price_raw : get_post_meta( $product_id, '_sale_price', true );
+    $regular = shk_parser_parse_price_scalar( $regular_source );
+    $sale = shk_parser_parse_price_scalar( $sale_source );
+
+    $original = 0.0;
+    $current = 0.0;
+    if ( $regular > 0 && $sale > 0 ) {
+        $original = max( $regular, $sale );
+        $current = min( $regular, $sale );
+        if ( abs( $original - $current ) < 0.00001 ) {
+            $current = 0.0;
+        }
+    } elseif ( $regular > 0 ) {
+        $original = $regular;
+    } elseif ( $sale > 0 ) {
+        $original = $sale;
+    }
+
+    $original_val = $original > 0 ? wc_format_decimal( $original ) : '';
+    $current_val = $current > 0 ? wc_format_decimal( $current ) : '';
+    $effective_val = '' !== $current_val ? $current_val : $original_val;
+    $changed = false;
+
+    $old_original = trim( (string) get_post_meta( $product_id, '_shk_display_price_original', true ) );
+    $old_current = trim( (string) get_post_meta( $product_id, '_shk_display_price_sale', true ) );
+    $old_effective = trim( (string) get_post_meta( $product_id, '_shk_display_price_current', true ) );
+
+    if ( $old_original !== $original_val ) {
+        if ( '' === $original_val ) {
+            delete_post_meta( $product_id, '_shk_display_price_original' );
+        } else {
+            update_post_meta( $product_id, '_shk_display_price_original', $original_val );
+        }
+        $changed = true;
+    }
+
+    if ( $old_current !== $current_val ) {
+        if ( '' === $current_val ) {
+            delete_post_meta( $product_id, '_shk_display_price_sale' );
+        } else {
+            update_post_meta( $product_id, '_shk_display_price_sale', $current_val );
+        }
+        $changed = true;
+    }
+
+    if ( $old_effective !== $effective_val ) {
+        if ( '' === $effective_val ) {
+            delete_post_meta( $product_id, '_shk_display_price_current' );
+        } else {
+            update_post_meta( $product_id, '_shk_display_price_current', $effective_val );
+        }
+        $changed = true;
+    }
+
+    return $changed;
+}
+
 function shk_parser_ensure_product_simple_type( $product_id ) {
     $product_id = (int) $product_id;
     if ( $product_id <= 0 ) {
@@ -976,6 +1041,7 @@ function shk_parser_repair_from_run( $run_id ) {
         'prices_updated'          => 0,
         'prices_rewritten'        => 0,
         'prices_swapped_detected' => 0,
+        'display_price_meta_sync' => 0,
         'meta_products_filled'    => 0,
         'meta_fields_filled'      => 0,
         'related_products'        => 0,
@@ -1079,6 +1145,9 @@ function shk_parser_repair_from_run( $run_id ) {
         update_post_meta( $product_id, '_regular_price', $regular_price );
         update_post_meta( $product_id, '_sale_price', $sale_price );
         update_post_meta( $product_id, '_price', $effective_price );
+        if ( shk_parser_sync_display_price_meta( $product_id, $regular_price, $sale_price ) ) {
+            $stats['display_price_meta_sync']++;
+        }
 
         $product->set_regular_price( $regular_price );
         $product->set_sale_price( $sale_price );
