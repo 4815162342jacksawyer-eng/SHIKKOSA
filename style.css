@@ -2668,12 +2668,26 @@ width: fit-content;
 
 /*New Products Section*/
 
-.price{
+/* Keep legacy "new products" price inversion only when explicitly wrapped. */
+.shk-new-products-price .price{
     display: flex;
     flex-direction: column-reverse;
 }
-ins{
+.shk-new-products-price ins{
     text-decoration: auto !important;
+}
+
+/* Global storefront: preserve semantic order (original -> sale). */
+.woocommerce .price{
+    display: flex;
+    flex-direction: column;
+}
+.woocommerce .price del{
+    order: 1;
+}
+.woocommerce .price ins{
+    order: 2;
+    text-decoration: none !important;
 }
 
 .btn_new_product,.btn_new_product_2 {
