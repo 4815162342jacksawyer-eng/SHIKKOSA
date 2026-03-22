@@ -1389,7 +1389,7 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     position: relative !important;
     display: inline-flex !important;
     align-items: center !important;
-    top: -2px !important;
+    top: -7px !important;
 }
 .catalog-native-menu a.wishlist_products_counter.top_wishlist-heart::before {
     font-size: 24px !important;
