@@ -1404,7 +1404,7 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     top: 58% !important;
     left: 100% !important;
     right: auto !important;
-    margin-left: 6px !important;
+    margin-left: 8px !important;
     transform: translateY(-50%) !important;
 }
 .catalog-native-menu .elementor-menu-cart__toggle .elementor-button-icon-qty {
