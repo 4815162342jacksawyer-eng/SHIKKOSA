@@ -82,12 +82,6 @@ button.size-swatch.shk-attr-option.disabled {
     padding: 10vw !important;
 }
 
-/* WP sync test marker: visible only on checkout block */
-.wp-block-woocommerce-checkout.wc-block-checkout {
-    outline: 2px dashed #d10f7a;
-    outline-offset: 8px;
-}
-
 .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-checkout-step__title {
     font-family: "Canela LC Web Lght", sans-serif !important;
     font-size: 24px !important;
