@@ -18,6 +18,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 function shikkosa_sdek_settings_default() {
     return array(
         'enabled'            => 'yes',
+        'msk_no_fit_label'   => 'СДЭК ПВЗ (МСК/МО, без примерки)',
+        'msk_fit_label'      => 'СДЭК ПВЗ (МСК/МО, с примеркой)',
+        'rf_no_fit_label'    => 'СДЭК ПВЗ (РФ, без примерки)',
+        'rf_fit_label'       => 'СДЭК ПВЗ (РФ, с примеркой)',
+        'msk_no_fit_price'   => '',
+        'msk_fit_price'      => '',
+        'rf_no_fit_price'    => '',
+        'rf_fit_price'       => '',
         'msk_no_fit_extra'   => '0',
         'msk_fit_extra'      => '0',
         'rf_no_fit_extra'    => '0',
@@ -50,6 +58,21 @@ function shikkosa_sdek_settings_sanitize( $input ) {
 
     $out = wp_parse_args( $input, $defaults );
     $out['enabled'] = ( isset( $input['enabled'] ) && 'yes' === (string) $input['enabled'] ) ? 'yes' : 'no';
+
+    foreach ( array( 'msk_no_fit_label', 'msk_fit_label', 'rf_no_fit_label', 'rf_fit_label' ) as $key ) {
+        $value = isset( $input[ $key ] ) ? $input[ $key ] : $defaults[ $key ];
+        $value = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : (string) $defaults[ $key ];
+        $out[ $key ] = '' !== $value ? $value : (string) $defaults[ $key ];
+    }
+
+    foreach ( array( 'msk_no_fit_price', 'msk_fit_price', 'rf_no_fit_price', 'rf_fit_price' ) as $key ) {
+        $value = isset( $input[ $key ] ) ? $input[ $key ] : '';
+        if ( '' === trim( (string) $value ) ) {
+            $out[ $key ] = '';
+            continue;
+        }
+        $out[ $key ] = is_scalar( $value ) ? (string) wc_format_decimal( (string) $value ) : '';
+    }
 
     foreach ( array( 'msk_no_fit_extra', 'msk_fit_extra', 'rf_no_fit_extra', 'rf_fit_extra' ) as $key ) {
         $value = isset( $input[ $key ] ) ? $input[ $key ] : $defaults[ $key ];
@@ -153,6 +176,15 @@ function shikkosa_clone_rate_with_label_and_cost( $source_rate, $new_id, $new_la
     return $new;
 }
 
+function shikkosa_sdek_resolve_cost( $settings, $price_key, $base_cost, $extra_key ) {
+    $fixed_price = isset( $settings[ $price_key ] ) ? trim( (string) $settings[ $price_key ] ) : '';
+    if ( '' !== $fixed_price && is_numeric( $fixed_price ) ) {
+        return max( 0.0, (float) $fixed_price );
+    }
+    $extra = isset( $settings[ $extra_key ] ) ? (float) $settings[ $extra_key ] : 0.0;
+    return max( 0.0, (float) $base_cost + $extra );
+}
+
 add_filter( 'woocommerce_package_rates', 'shikkosa_split_cdek_pickup_rates', 120, 2 );
 function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     if ( ! is_array( $rates ) || empty( $rates ) ) {
@@ -192,33 +224,33 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
             $scenarios = array(
                 array(
                     'code'  => 'pvz_msk_no_fit',
-                    'label' => 'СДЭК ПВЗ (МСК/МО, без примерки)',
-                    'extra' => (float) $settings['msk_no_fit_extra'],
+                    'label' => isset( $settings['msk_no_fit_label'] ) ? (string) $settings['msk_no_fit_label'] : 'СДЭК ПВЗ (МСК/МО, без примерки)',
+                    'cost'  => shikkosa_sdek_resolve_cost( $settings, 'msk_no_fit_price', $base_cost, 'msk_no_fit_extra' ),
                 ),
                 array(
                     'code'  => 'pvz_msk_fit',
-                    'label' => 'СДЭК ПВЗ (МСК/МО, с примеркой)',
-                    'extra' => (float) $settings['msk_fit_extra'],
+                    'label' => isset( $settings['msk_fit_label'] ) ? (string) $settings['msk_fit_label'] : 'СДЭК ПВЗ (МСК/МО, с примеркой)',
+                    'cost'  => shikkosa_sdek_resolve_cost( $settings, 'msk_fit_price', $base_cost, 'msk_fit_extra' ),
                 ),
             );
         } else {
             $scenarios = array(
                 array(
                     'code'  => 'pvz_rf_no_fit',
-                    'label' => 'СДЭК ПВЗ (РФ, без примерки)',
-                    'extra' => (float) $settings['rf_no_fit_extra'],
+                    'label' => isset( $settings['rf_no_fit_label'] ) ? (string) $settings['rf_no_fit_label'] : 'СДЭК ПВЗ (РФ, без примерки)',
+                    'cost'  => shikkosa_sdek_resolve_cost( $settings, 'rf_no_fit_price', $base_cost, 'rf_no_fit_extra' ),
                 ),
                 array(
                     'code'  => 'pvz_rf_fit',
-                    'label' => 'СДЭК ПВЗ (РФ, с примеркой)',
-                    'extra' => (float) $settings['rf_fit_extra'],
+                    'label' => isset( $settings['rf_fit_label'] ) ? (string) $settings['rf_fit_label'] : 'СДЭК ПВЗ (РФ, с примеркой)',
+                    'cost'  => shikkosa_sdek_resolve_cost( $settings, 'rf_fit_price', $base_cost, 'rf_fit_extra' ),
                 ),
             );
         }
 
         foreach ( $scenarios as $scenario ) {
             $new_id   = (string) $rate_id . '__shk_' . (string) $scenario['code'];
-            $new_cost = max( 0, $base_cost + (float) $scenario['extra'] );
+            $new_cost = isset( $scenario['cost'] ) ? (float) $scenario['cost'] : $base_cost;
             $new_rates[ $new_id ] = shikkosa_clone_rate_with_label_and_cost( $rate, $new_id, $scenario['label'], $new_cost );
         }
     }
@@ -299,6 +331,38 @@ function shikkosa_sdek_settings_page() {
                 <tr><th scope="row">МСК/МО, ПВЗ с примеркой (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_fit_extra]" value="<?php echo esc_attr( $opt['msk_fit_extra'] ); ?>" /></td></tr>
                 <tr><th scope="row">РФ, ПВЗ без примерки (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_no_fit_extra]" value="<?php echo esc_attr( $opt['rf_no_fit_extra'] ); ?>" /></td></tr>
                 <tr><th scope="row">РФ, ПВЗ с примеркой (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_fit_extra]" value="<?php echo esc_attr( $opt['rf_fit_extra'] ); ?>" /></td></tr>
+                <tr>
+                    <th scope="row">МСК/МО, без примерки: название</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_no_fit_label]" value="<?php echo esc_attr( $opt['msk_no_fit_label'] ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row">МСК/МО, без примерки: стоимость</th>
+                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_no_fit_price]" value="<?php echo esc_attr( $opt['msk_no_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
+                </tr>
+                <tr>
+                    <th scope="row">МСК/МО, с примеркой: название</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_fit_label]" value="<?php echo esc_attr( $opt['msk_fit_label'] ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row">МСК/МО, с примеркой: стоимость</th>
+                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_fit_price]" value="<?php echo esc_attr( $opt['msk_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
+                </tr>
+                <tr>
+                    <th scope="row">РФ, без примерки: название</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_no_fit_label]" value="<?php echo esc_attr( $opt['rf_no_fit_label'] ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row">РФ, без примерки: стоимость</th>
+                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_no_fit_price]" value="<?php echo esc_attr( $opt['rf_no_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
+                </tr>
+                <tr>
+                    <th scope="row">РФ, с примеркой: название</th>
+                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_fit_label]" value="<?php echo esc_attr( $opt['rf_fit_label'] ); ?>" /></td>
+                </tr>
+                <tr>
+                    <th scope="row">РФ, с примеркой: стоимость</th>
+                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_fit_price]" value="<?php echo esc_attr( $opt['rf_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
+                </tr>
             </table>
             <?php submit_button(); ?>
         </form>
