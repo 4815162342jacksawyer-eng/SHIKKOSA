@@ -507,10 +507,19 @@ function shikkosa_sdek_get_shipping_settings_section( $settings, $current_sectio
 }
 
 add_action( 'woocommerce_update_options_shipping_shk_sdek', 'shikkosa_sdek_save_from_wc_shipping_section' );
+add_action( 'woocommerce_update_options_shipping', 'shikkosa_sdek_save_from_wc_shipping_section_fallback', 20 );
 function shikkosa_sdek_save_from_wc_shipping_section() {
     $raw = isset( $_POST['shikkosa_sdek_settings'] ) ? wp_unslash( $_POST['shikkosa_sdek_settings'] ) : array();
     $sanitized = shikkosa_sdek_settings_sanitize( $raw );
     update_option( 'shikkosa_sdek_settings', $sanitized );
+}
+
+function shikkosa_sdek_save_from_wc_shipping_section_fallback() {
+    $section = isset( $_GET['section'] ) ? sanitize_key( (string) $_GET['section'] ) : '';
+    if ( 'shk_sdek' !== $section ) {
+        return;
+    }
+    shikkosa_sdek_save_from_wc_shipping_section();
 }
 
 function shikkosa_sdek_profile_titles() {
@@ -559,10 +568,17 @@ function shikkosa_sdek_detect_active_general_profiles() {
                 isset( $method->id ) ? (string) $method->id : '',
                 isset( $method->method_title ) ? (string) $method->method_title : '',
                 isset( $method->title ) ? (string) $method->title : '',
+                get_class( $method ),
             );
             $hay = implode( ' ', array_filter( $pieces ) );
             $hay_lc = function_exists( 'mb_strtolower' ) ? mb_strtolower( $hay ) : strtolower( $hay );
-            if ( false === strpos( $hay_lc, 'cdek' ) && false === strpos( $hay_lc, 'sdek' ) && false === strpos( $hay_lc, 'сдэк' ) ) {
+            if (
+                false === strpos( $hay_lc, 'cdek' ) &&
+                false === strpos( $hay_lc, 'sdek' ) &&
+                false === strpos( $hay_lc, 'сдэк' ) &&
+                false === strpos( $hay_lc, 'сдек' ) &&
+                false === strpos( $hay_lc, 'edostavka' )
+            ) {
                 continue;
             }
 
@@ -589,6 +605,11 @@ function shikkosa_sdek_render_wc_shipping_manager() {
                 $active_profiles[] = $profile_code;
             }
         }
+    }
+
+    $detected_empty = empty( $active_profiles );
+    if ( $detected_empty ) {
+        $active_profiles = array_keys( $title_map );
     }
 
     $split_rows = array(
@@ -619,9 +640,10 @@ function shikkosa_sdek_render_wc_shipping_manager() {
     </p>
 
     <h3>Активные варианты СДЭК</h3>
-    <?php if ( empty( $active_profiles ) ) : ?>
-        <p class="description">Активные варианты СДЭК пока не обнаружены в зонах доставки.</p>
-    <?php else : ?>
+    <?php if ( $detected_empty ) : ?>
+        <p class="description">Не удалось автоматически определить активные варианты СДЭК. Показаны базовые профили.</p>
+    <?php endif; ?>
+    <?php if ( ! empty( $active_profiles ) ) : ?>
         <table class="shk-sdek-inline-table" role="presentation">
             <thead>
                 <tr>
