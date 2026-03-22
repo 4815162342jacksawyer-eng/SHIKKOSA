@@ -390,7 +390,7 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .wc-block-components-radio-control__option.wc-block-components-radio-control__option-checked {
-    border-bottom-color: var(--e-global-color-primary) !important;
+    border-bottom-color: transparent !important;
     box-shadow: inset 3px 0 0 var(--e-global-color-primary);
 }
 
