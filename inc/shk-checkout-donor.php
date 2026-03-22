@@ -130,6 +130,63 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
       }
 
+      function ensurePrivacyConsentInSummary(root) {
+        if (!root) return;
+
+        var mount = root.querySelector('.wc-block-checkout__sidebar .shk-summary-place-order');
+        if (!mount) return;
+
+        var button = mount.querySelector('.wc-block-components-checkout-place-order-button');
+        if (!button) return;
+
+        var existing = mount.querySelector('.shk-privacy-consent');
+        if (!existing) {
+          var wrap = document.createElement('div');
+          wrap.className = 'shk-privacy-consent form-group field-orderform-isprivacyaccept required';
+          wrap.innerHTML =
+            '<div class="custom-control custom-checkbox">' +
+              '<input type="hidden" name="OrderForm[isPrivacyAccept]" value="0">' +
+              '<input type="checkbox" id="orderform-isprivacyaccept" class="custom-control-input" name="OrderForm[isPrivacyAccept]" value="1" aria-required="true">' +
+              '<label class="custom-control-label" for="orderform-isprivacyaccept">Я даю согласие на обработку персональных данных и соглашаюсь с <a href="/privacy-policy" target="_blank" rel="noopener">политикой конфиденциальности</a></label>' +
+              '<div class="invalid-feedback"></div>' +
+            '</div>';
+          mount.appendChild(wrap);
+          existing = wrap;
+        }
+
+        var checkbox = existing.querySelector('#orderform-isprivacyaccept');
+        var feedback = existing.querySelector('.invalid-feedback');
+        if (!checkbox) return;
+
+        var updateState = function () {
+          if (checkbox.checked) {
+            button.disabled = false;
+            button.classList.remove('shk-place-order-disabled');
+            checkbox.classList.remove('is-invalid');
+            existing.classList.remove('is-invalid');
+            if (feedback) feedback.textContent = '';
+          } else {
+            button.disabled = true;
+            button.classList.add('shk-place-order-disabled');
+          }
+        };
+
+        if (!checkbox.dataset.shkBound) {
+          checkbox.addEventListener('change', updateState);
+          button.addEventListener('click', function (evt) {
+            if (checkbox.checked) return;
+            evt.preventDefault();
+            evt.stopPropagation();
+            checkbox.classList.add('is-invalid');
+            existing.classList.add('is-invalid');
+            if (feedback) feedback.textContent = 'Необходимо принять условия обработки персональных данных.';
+          }, true);
+          checkbox.dataset.shkBound = '1';
+        }
+
+        updateState();
+      }
+
       function applyTweaks() {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         if (!root) return false;
@@ -248,6 +305,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
         forceOrderNote(root);
         movePlaceOrderButtonIntoSummary(root);
+        ensurePrivacyConsentInSummary(root);
 
         root.classList.add('shk-checkout-donor');
         root.dataset.shkDonorReady = '1';
@@ -269,11 +327,13 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       document.addEventListener('change', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         movePlaceOrderButtonIntoSummary(root);
+        ensurePrivacyConsentInSummary(root);
       });
 
       document.addEventListener('wc-blocks_checkout_update', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         movePlaceOrderButtonIntoSummary(root);
+        ensurePrivacyConsentInSummary(root);
       });
     })();
     </script>
