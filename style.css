@@ -82,7 +82,7 @@ body.woocommerce-cart .wp-block-woocommerce-cart {
     max-width: 1320px;
     width: 100%;
     margin: 0 auto;
-    padding: 48px 24px !important;
+    padding: 120px 24px 48px !important;
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-sidebar-layout.is-large,
@@ -95,6 +95,13 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-main {
     min-width: 0;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-checkout-step__content,
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-text-input,
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-blocks-components-select {
+    width: 100% !important;
+    max-width: none !important;
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-sidebar {
@@ -150,7 +157,7 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-checkout__shipping-method-container {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 10px;
 }
 
@@ -175,6 +182,30 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
     background: transparent !important;
 }
 
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-radio-control__option > label {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    column-gap: 12px;
+    align-items: start;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-radio-control__input {
+    margin-top: 4px;
+    accent-color: var(--e-global-color-primary);
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-radio-control__label-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    align-items: start;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-radio-control__secondary-label {
+    white-space: nowrap;
+    font-weight: 400;
+}
+
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-checkout-place-order-button {
     background: var(--e-global-color-primary);
     border: 0;
@@ -191,7 +222,7 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
 @media (max-width: 1100px) {
     body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout,
     body.woocommerce-cart .wp-block-woocommerce-cart {
-        padding: 34px 16px !important;
+        padding: 110px 16px 34px !important;
     }
 
     body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-sidebar-layout.is-large,
@@ -208,7 +239,7 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
 @media (max-width: 767px) {
     body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout,
     body.woocommerce-cart .wp-block-woocommerce-cart {
-        padding: 24px 12px !important;
+        padding: 96px 12px 24px !important;
     }
 
     body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-checkout__shipping-method-container {
@@ -229,6 +260,11 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .wc-block-components-address-form {
     display: grid;
     gap: 12px;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .wc-block-components-address-form > * {
+    width: 100% !important;
+    max-width: none !important;
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-house-apartment {
