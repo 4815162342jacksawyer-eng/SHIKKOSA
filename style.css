@@ -330,6 +330,14 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
     box-shadow: inset 3px 0 0 var(--e-global-color-primary);
 }
 
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-summary-place-order {
+    margin-top: 14px;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-summary-place-order .wc-block-components-checkout-place-order-button {
+    width: 100%;
+}
+
 @media (max-width: 767px) {
     body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-house-apartment {
         grid-template-columns: 1fr;

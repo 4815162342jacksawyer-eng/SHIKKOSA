@@ -103,6 +103,33 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
       }
 
+      function movePlaceOrderButtonIntoSummary(root) {
+        if (!root) return;
+
+        var button = root.querySelector('.wc-block-components-checkout-place-order-button');
+        var summaryTotals = root.querySelector('.wc-block-checkout__sidebar .wc-block-components-totals-wrapper .wc-block-components-totals-item.wc-block-components-totals-footer-item');
+        if (!button || !summaryTotals) return;
+
+        var summaryCard = summaryTotals.closest('.wp-block-woocommerce-checkout-order-summary-block');
+        if (!summaryCard) return;
+
+        var mount = summaryCard.querySelector('.shk-summary-place-order');
+        if (!mount) {
+          mount = document.createElement('div');
+          mount.className = 'shk-summary-place-order';
+          summaryTotals.parentNode.insertAdjacentElement('afterend', mount);
+        }
+
+        if (button.parentElement !== mount) {
+          mount.appendChild(button);
+        }
+
+        var actionsRow = root.querySelector('.wc-block-checkout__actions_row');
+        if (actionsRow) {
+          actionsRow.style.display = 'none';
+        }
+      }
+
       function applyTweaks() {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         if (!root) return false;
@@ -220,6 +247,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
 
         forceOrderNote(root);
+        movePlaceOrderButtonIntoSummary(root);
 
         root.classList.add('shk-checkout-donor');
         root.dataset.shkDonorReady = '1';
@@ -237,6 +265,16 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           clearInterval(timer);
         }
       }, 250);
+
+      document.addEventListener('change', function () {
+        var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        movePlaceOrderButtonIntoSummary(root);
+      });
+
+      document.addEventListener('wc-blocks_checkout_update', function () {
+        var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        movePlaceOrderButtonIntoSummary(root);
+      });
     })();
     </script>
     <?php
