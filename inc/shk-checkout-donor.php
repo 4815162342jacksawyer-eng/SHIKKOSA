@@ -54,6 +54,24 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (el) el.style.display = 'none';
       }
 
+      function enforceAddressFieldVisibility(root) {
+        if (!root) return;
+        var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
+        var shippingForm = shippingFields ? shippingFields.querySelector('#shipping.wc-block-components-address-form') : null;
+        if (shippingForm) {
+          hideEl(shippingForm, '.wc-block-components-address-form__country');
+          hideEl(shippingForm, '.wc-block-components-address-form__state');
+          hideEl(shippingForm, '.wc-block-components-address-form__postcode');
+          var lastWrap = shippingForm.querySelector('.wc-block-components-address-form__last_name');
+          if (lastWrap) {
+            lastWrap.style.display = 'none';
+          }
+        }
+        if (shippingFields) {
+          hideEl(shippingFields, '.wc-block-checkout__use-address-for-billing');
+        }
+      }
+
       function renameLabel(root, selector, text) {
         if (!root) return;
         var wrap = root.querySelector(selector);
@@ -574,6 +592,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
 
         forceOrderNote(root);
+        enforceAddressFieldVisibility(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -601,6 +620,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         enforceCheckoutOrder(root);
         mountUnifiedShippingRates(root);
+        enforceAddressFieldVisibility(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -612,6 +632,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         enforceCheckoutOrder(root);
         mountUnifiedShippingRates(root);
+        enforceAddressFieldVisibility(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
