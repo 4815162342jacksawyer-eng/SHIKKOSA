@@ -146,8 +146,9 @@ function shikkosa_sdek_settings_sanitize( $input ) {
     return $out;
 }
 
-function shikkosa_sdek_rate_profile_code( $rate ) {
-    $s = shikkosa_sdek_rate_string( $rate );
+function shikkosa_sdek_profile_code_from_string( $s ) {
+    $s = is_scalar( $s ) ? (string) $s : '';
+    $s = function_exists( 'mb_strtolower' ) ? mb_strtolower( $s ) : strtolower( $s );
     if ( '' === $s ) {
         return '';
     }
@@ -177,6 +178,10 @@ function shikkosa_sdek_rate_profile_code( $rate ) {
     }
 
     return '';
+}
+
+function shikkosa_sdek_rate_profile_code( $rate ) {
+    return shikkosa_sdek_profile_code_from_string( shikkosa_sdek_rate_string( $rate ) );
 }
 
 function shikkosa_sdek_apply_profile_overrides( $rate, $settings, $profile ) {
@@ -450,6 +455,205 @@ function shikkosa_sdek_settings_register() {
             'sanitize_callback' => 'shikkosa_sdek_settings_sanitize',
         )
     );
+}
+
+add_filter( 'woocommerce_get_sections_shipping', 'shikkosa_sdek_add_shipping_section', 30 );
+function shikkosa_sdek_add_shipping_section( $sections ) {
+    if ( ! is_array( $sections ) ) {
+        $sections = array();
+    }
+    $sections['shk_sdek'] = 'SHK СДЭК';
+    return $sections;
+}
+
+add_filter( 'woocommerce_get_settings_shipping', 'shikkosa_sdek_get_shipping_settings_section', 30, 2 );
+function shikkosa_sdek_get_shipping_settings_section( $settings, $current_section ) {
+    if ( 'shk_sdek' !== (string) $current_section ) {
+        return $settings;
+    }
+
+    return array(
+        array(
+            'name' => 'SHK СДЭК',
+            'type' => 'title',
+            'id'   => 'shikkosa_sdek_wc_section',
+            'desc' => 'Редактирование названий, стоимости и комментариев для активных вариантов СДЭК.',
+        ),
+        array(
+            'type' => 'shk_sdek_manager',
+            'id'   => 'shikkosa_sdek_manager',
+        ),
+        array(
+            'type' => 'sectionend',
+            'id'   => 'shikkosa_sdek_wc_section',
+        ),
+    );
+}
+
+add_action( 'woocommerce_update_options_shipping_shk_sdek', 'shikkosa_sdek_save_from_wc_shipping_section' );
+function shikkosa_sdek_save_from_wc_shipping_section() {
+    $raw = isset( $_POST['shikkosa_sdek_settings'] ) ? wp_unslash( $_POST['shikkosa_sdek_settings'] ) : array();
+    $sanitized = shikkosa_sdek_settings_sanitize( $raw );
+    update_option( 'shikkosa_sdek_settings', $sanitized );
+}
+
+function shikkosa_sdek_profile_titles() {
+    return array(
+        'cdek_door_door'         => 'СДЭК дверь-дверь',
+        'cdek_door_warehouse'    => 'СДЭК дверь-склад/пункт',
+        'cdek_pickup'            => 'СДЭК ПВЗ/самовывоз',
+        'cdek_express_door_door' => 'СДЭК Экспресс дверь-дверь',
+    );
+}
+
+function shikkosa_sdek_detect_active_general_profiles() {
+    $profiles = array();
+
+    if ( ! class_exists( 'WC_Shipping_Zones' ) ) {
+        return $profiles;
+    }
+
+    $zone_objects = array();
+    $zones = WC_Shipping_Zones::get_zones();
+    if ( is_array( $zones ) ) {
+        foreach ( $zones as $zone_data ) {
+            if ( empty( $zone_data['zone_id'] ) ) {
+                continue;
+            }
+            $zone_objects[] = new WC_Shipping_Zone( (int) $zone_data['zone_id'] );
+        }
+    }
+    $zone_objects[] = WC_Shipping_Zones::get_zone( 0 ); // Locations not covered by your other zones.
+
+    foreach ( $zone_objects as $zone ) {
+        if ( ! $zone || ! is_a( $zone, 'WC_Shipping_Zone' ) ) {
+            continue;
+        }
+        $methods = $zone->get_shipping_methods( true );
+        foreach ( $methods as $method ) {
+            if ( ! $method || ! is_object( $method ) ) {
+                continue;
+            }
+            $enabled = isset( $method->enabled ) ? (string) $method->enabled : 'yes';
+            if ( 'yes' !== $enabled ) {
+                continue;
+            }
+
+            $pieces = array(
+                isset( $method->id ) ? (string) $method->id : '',
+                isset( $method->method_title ) ? (string) $method->method_title : '',
+                isset( $method->title ) ? (string) $method->title : '',
+            );
+            $hay = implode( ' ', array_filter( $pieces ) );
+            $hay_lc = function_exists( 'mb_strtolower' ) ? mb_strtolower( $hay ) : strtolower( $hay );
+            if ( false === strpos( $hay_lc, 'cdek' ) && false === strpos( $hay_lc, 'sdek' ) && false === strpos( $hay_lc, 'сдэк' ) ) {
+                continue;
+            }
+
+            $code = shikkosa_sdek_profile_code_from_string( $hay_lc );
+            if ( '' !== $code ) {
+                $profiles[ $code ] = true;
+            }
+        }
+    }
+
+    return array_keys( $profiles );
+}
+
+add_action( 'woocommerce_admin_field_shk_sdek_manager', 'shikkosa_sdek_render_wc_shipping_manager' );
+function shikkosa_sdek_render_wc_shipping_manager() {
+    $opt = shikkosa_sdek_settings();
+    $title_map = shikkosa_sdek_profile_titles();
+    $active_profiles = shikkosa_sdek_detect_active_general_profiles();
+
+    if ( empty( $active_profiles ) ) {
+        foreach ( $title_map as $profile_code => $profile_title ) {
+            $has_any_value = ! empty( $opt[ $profile_code . '_label' ] ) || ! empty( $opt[ $profile_code . '_price' ] ) || ! empty( $opt[ $profile_code . '_price_comment' ] ) || ! empty( $opt[ $profile_code . '_delivery_comment' ] );
+            if ( $has_any_value ) {
+                $active_profiles[] = $profile_code;
+            }
+        }
+    }
+
+    $split_rows = array(
+        array( 'key' => 'msk_no_fit', 'title' => 'МСК/МО, ПВЗ без примерки' ),
+        array( 'key' => 'msk_fit',    'title' => 'МСК/МО, ПВЗ с примеркой' ),
+        array( 'key' => 'rf_no_fit',  'title' => 'РФ, ПВЗ без примерки' ),
+        array( 'key' => 'rf_fit',     'title' => 'РФ, ПВЗ с примеркой' ),
+    );
+    ?>
+    <style>
+        .shk-sdek-inline-table{width:100%;border-collapse:collapse;margin:10px 0 18px;table-layout:fixed}
+        .shk-sdek-inline-table th,.shk-sdek-inline-table td{border:1px solid #dcdcde;padding:8px;vertical-align:top}
+        .shk-sdek-inline-table th{background:#f6f7f7;font-weight:600;text-align:left}
+        .shk-sdek-inline-table td input[type="text"],.shk-sdek-inline-table td input[type="number"]{width:100%;box-sizing:border-box}
+    </style>
+
+    <p>
+        <label>
+            <input type="checkbox" name="shikkosa_sdek_settings[enabled]" value="yes" <?php checked( $opt['enabled'], 'yes' ); ?> />
+            Включить разделение ПВЗ
+        </label>
+    </p>
+
+    <h3>Активные варианты СДЭК</h3>
+    <?php if ( empty( $active_profiles ) ) : ?>
+        <p class="description">Активные варианты СДЭК пока не обнаружены в зонах доставки.</p>
+    <?php else : ?>
+        <table class="shk-sdek-inline-table" role="presentation">
+            <thead>
+                <tr>
+                    <th style="width:20%">Тип</th>
+                    <th style="width:24%">Название</th>
+                    <th style="width:10%">Стоимость</th>
+                    <th style="width:23%">Комментарий к цене</th>
+                    <th style="width:23%">Комментарий по сроку/условиям</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ( $active_profiles as $profile_code ) : ?>
+                <?php if ( ! isset( $title_map[ $profile_code ] ) ) { continue; } ?>
+                <tr>
+                    <td><?php echo esc_html( $title_map[ $profile_code ] ); ?></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_label]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_label' ] ) ? $opt[ $profile_code . '_label' ] : '' ); ?>" /></td>
+                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_price]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_price' ] ) ? $opt[ $profile_code . '_price' ] : '' ); ?>" /></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_price_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_price_comment' ] ) ? $opt[ $profile_code . '_price_comment' ] : '' ); ?>" /></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_delivery_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_delivery_comment' ] ) ? $opt[ $profile_code . '_delivery_comment' ] : '' ); ?>" /></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+
+    <h3>Split ПВЗ</h3>
+    <table class="shk-sdek-inline-table" role="presentation">
+        <thead>
+            <tr>
+                <th style="width:18%">Вариант</th>
+                <th style="width:10%">Добавка</th>
+                <th style="width:20%">Название</th>
+                <th style="width:10%">Стоимость</th>
+                <th style="width:21%">Комментарий к цене</th>
+                <th style="width:21%">Комментарий по сроку/условиям</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ( $split_rows as $row ) : ?>
+            <?php $k = $row['key']; ?>
+            <tr>
+                <td><?php echo esc_html( $row['title'] ); ?></td>
+                <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_extra]" value="<?php echo esc_attr( isset( $opt[ $k . '_extra' ] ) ? $opt[ $k . '_extra' ] : '0' ); ?>" /></td>
+                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_label]" value="<?php echo esc_attr( isset( $opt[ $k . '_label' ] ) ? $opt[ $k . '_label' ] : '' ); ?>" /></td>
+                <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_price]" value="<?php echo esc_attr( isset( $opt[ $k . '_price' ] ) ? $opt[ $k . '_price' ] : '' ); ?>" /></td>
+                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_price_comment]" value="<?php echo esc_attr( isset( $opt[ $k . '_price_comment' ] ) ? $opt[ $k . '_price_comment' ] : '' ); ?>" /></td>
+                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $k ); ?>_delivery_comment]" value="<?php echo esc_attr( isset( $opt[ $k . '_delivery_comment' ] ) ? $opt[ $k . '_delivery_comment' ] : '' ); ?>" /></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+
+    <p class="description">Если «Стоимость» пустая, используется стандартная стоимость метода (или базовая + добавка для split).</p>
+    <?php
 }
 
 function shikkosa_sdek_settings_page() {
