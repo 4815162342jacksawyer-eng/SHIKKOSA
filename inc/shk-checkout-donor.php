@@ -66,6 +66,15 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         var apartmentInput = existing.querySelector('#shk-apartment-field');
         if (!houseInput || !apartmentInput) return;
 
+        var streetRow = shippingForm.querySelector('.shk-street-house-apartment');
+        if (!streetRow) {
+          streetRow = document.createElement('div');
+          streetRow.className = 'shk-street-house-apartment';
+          address1Wrap.insertAdjacentElement('beforebegin', streetRow);
+        }
+        if (!streetRow.contains(address1Wrap)) streetRow.appendChild(address1Wrap);
+        if (!streetRow.contains(existing)) streetRow.appendChild(existing);
+
         var updateAddress2 = function () {
           var house = (houseInput.value || '').trim();
           var apartment = (apartmentInput.value || '').trim();
