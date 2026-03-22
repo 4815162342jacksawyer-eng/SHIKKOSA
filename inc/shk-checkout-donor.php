@@ -327,10 +327,10 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           renameLabel(shippingForm, '.wc-block-components-address-form__address_1', 'Улица');
           hideEl(shippingForm, '.wc-block-components-address-form__country');
           hideEl(shippingForm, '.wc-block-components-address-form__state');
+          hideEl(shippingForm, '.wc-block-components-address-form__postcode');
           hideEl(shippingFields, '.wc-block-checkout__use-address-for-billing');
 
           setupHouseApartment(shippingForm);
-          setupCityPostcode(shippingForm);
         }
 
         forceOrderNote(root);

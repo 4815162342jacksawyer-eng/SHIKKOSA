@@ -18,6 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 function shikkosa_sdek_settings_default() {
     return array(
         'enabled'            => 'yes',
+        'debug_timing'       => 'no',
         'cdek_door_door_label'   => '',
         'cdek_door_door_price'   => '',
         'cdek_door_door_price_comment' => '',
@@ -82,6 +83,7 @@ function shikkosa_sdek_settings_sanitize( $input ) {
 
     $out = wp_parse_args( $input, $defaults );
     $out['enabled'] = ( isset( $input['enabled'] ) && 'yes' === (string) $input['enabled'] ) ? 'yes' : 'no';
+    $out['debug_timing'] = ( isset( $input['debug_timing'] ) && 'yes' === (string) $input['debug_timing'] ) ? 'yes' : 'no';
 
     foreach ( array(
         'cdek_door_door_label',
@@ -325,11 +327,17 @@ function shikkosa_sdek_resolve_cost( $settings, $price_key, $base_cost, $extra_k
 
 add_filter( 'woocommerce_package_rates', 'shikkosa_split_cdek_pickup_rates', 120, 2 );
 function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
+    $settings = shikkosa_sdek_settings();
+    $started_at = microtime( true );
+
     if ( ! is_array( $rates ) || empty( $rates ) ) {
+        if ( 'yes' === (string) $settings['debug_timing'] ) {
+            $logger = wc_get_logger();
+            $logger->info( '[SHK SDEK] package_rates: empty rates, elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms', array( 'source' => 'shk-sdek' ) );
+        }
         return $rates;
     }
 
-    $settings = shikkosa_sdek_settings();
     $is_msk_mo = shikkosa_is_msk_mo_destination( $package );
     $split_enabled = ( 'yes' === (string) $settings['enabled'] );
 
@@ -405,6 +413,14 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
             }
             $new_rates[ $new_id ] = $new_rate;
         }
+    }
+
+    if ( 'yes' === (string) $settings['debug_timing'] ) {
+        $logger = wc_get_logger();
+        $logger->info(
+            '[SHK SDEK] package_rates: in=' . count( $rates ) . ', out=' . count( $new_rates ) . ', split=' . ( $split_enabled ? 'yes' : 'no' ) . ', msk_mo=' . ( $is_msk_mo ? 'yes' : 'no' ) . ', elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms',
+            array( 'source' => 'shk-sdek' )
+        );
     }
 
     return $new_rates;
@@ -593,6 +609,12 @@ function shikkosa_sdek_render_wc_shipping_manager() {
         <label>
             <input type="checkbox" name="shikkosa_sdek_settings[enabled]" value="yes" <?php checked( $opt['enabled'], 'yes' ); ?> />
             Включить разделение ПВЗ
+        </label>
+    </p>
+    <p>
+        <label>
+            <input type="checkbox" name="shikkosa_sdek_settings[debug_timing]" value="yes" <?php checked( isset( $opt['debug_timing'] ) ? $opt['debug_timing'] : 'no', 'yes' ); ?> />
+            Включить лог времени SHK СДЭК (WooCommerce -> Статус -> Логи -> source: <code>shk-sdek</code>)
         </label>
     </p>
 
