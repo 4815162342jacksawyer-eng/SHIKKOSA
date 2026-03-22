@@ -334,6 +334,14 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
     line-height: 1.06;
 }
 
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-main-checkout-title {
+    font-family: "Canela LC Web Lght", sans-serif !important;
+    font-size: 50px;
+    font-weight: 300;
+    line-height: 1.04;
+    margin: 0 0 14px;
+}
+
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-main-order-items {
     margin: 0 0 24px;
     padding: 0 0 14px;

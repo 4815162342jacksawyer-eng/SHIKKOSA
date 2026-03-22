@@ -167,15 +167,35 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         var itemsBlock = root.querySelector('.wc-block-checkout__sidebar .wp-block-woocommerce-checkout-order-summary-cart-items-block');
         if (!form || !itemsBlock) return;
 
+        var title = form.querySelector('.shk-main-checkout-title');
+        if (!title) {
+          title = document.createElement('h2');
+          title.className = 'shk-main-checkout-title';
+          title.textContent = 'Оформление заказа';
+          form.insertAdjacentElement('afterbegin', title);
+        }
+
         var mount = form.querySelector('.shk-main-order-items');
         if (!mount) {
           mount = document.createElement('div');
           mount.className = 'shk-main-order-items';
-          form.insertAdjacentElement('afterbegin', mount);
+          if (title.nextSibling) {
+            title.parentNode.insertBefore(mount, title.nextSibling);
+          } else {
+            form.appendChild(mount);
+          }
         }
 
         if (itemsBlock.parentElement !== mount) {
           mount.appendChild(itemsBlock);
+        }
+      }
+
+      function renameSummaryTitle(root) {
+        if (!root) return;
+        var summaryTitle = root.querySelector('.wc-block-checkout__sidebar .wc-block-components-checkout-order-summary__title-text');
+        if (summaryTitle) {
+          summaryTitle.textContent = 'Ваш заказ';
         }
       }
 
@@ -354,6 +374,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
         forceOrderNote(root);
         moveOrderItemsToMainTop(root);
+        renameSummaryTitle(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
 
@@ -377,6 +398,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       document.addEventListener('change', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         moveOrderItemsToMainTop(root);
+        renameSummaryTitle(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
       });
@@ -384,6 +406,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       document.addEventListener('wc-blocks_checkout_update', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         moveOrderItemsToMainTop(root);
+        renameSummaryTitle(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
       });
