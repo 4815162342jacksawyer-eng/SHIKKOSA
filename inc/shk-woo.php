@@ -47,6 +47,13 @@ function shikkosa_parse_price_amount_local( $raw ) {
     return wc_format_decimal( $raw );
 }
 
+function shikkosa_should_apply_runtime_price_overrides_local() {
+    if ( is_admin() && ! wp_doing_ajax() ) {
+        return false;
+    }
+    return function_exists( 'is_product' ) && is_product();
+}
+
 function shikkosa_normalized_raw_price_pair_local( $product_id ) {
     $product_id = (int) $product_id;
     if ( $product_id <= 0 ) {
@@ -79,7 +86,7 @@ function shikkosa_normalized_raw_price_pair_local( $product_id ) {
 }
 
 function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
-    if ( is_admin() && ! wp_doing_ajax() ) {
+    if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
         return $price;
     }
     if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
@@ -95,7 +102,7 @@ function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
 }
 
 function shikkosa_normalized_sale_price_filter_local( $price, $product ) {
-    if ( is_admin() && ! wp_doing_ajax() ) {
+    if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
         return $price;
     }
     if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
@@ -275,6 +282,9 @@ add_filter( 'woocommerce_get_price_html', 'shikkosa_filter_price_html_with_old_p
 add_filter( 'woocommerce_variable_price_html', 'shikkosa_filter_price_html_with_old_price_local', 20, 2 );
 add_filter( 'woocommerce_variable_sale_price_html', 'shikkosa_filter_price_html_with_old_price_local', 20, 2 );
 function shikkosa_filter_price_html_with_old_price_local( $price_html, $product ) {
+    if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
+        return $price_html;
+    }
     if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
         return $price_html;
     }
