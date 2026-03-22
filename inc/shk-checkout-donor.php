@@ -163,6 +163,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           var shippingMethodSwitch = root.querySelector('fieldset.wc-block-checkout__shipping-method');
           var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
           if (!shippingMethodSwitch || !shippingOptions) return;
+          shippingMethodSwitch.style.display = 'none';
 
           var switchContainer = shippingMethodSwitch.querySelector('.wc-block-checkout__shipping-method-container');
           var switchModes = switchContainer ? switchContainer.querySelectorAll('.wc-block-checkout__shipping-method-option') : [];
@@ -217,26 +218,32 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
               }
               row.setAttribute('data-shk-mode-idx', String(mode.idx));
               row.setAttribute('data-shk-rate-value', rate.value);
+              row.setAttribute('data-shk-rate-label', rate.label);
               row.innerHTML =
                 '<label><span class="wc-block-components-radio-control__option-layout">' +
                 '<span class="wc-block-components-radio-control__label-group">' +
                 '<span class="wc-block-components-radio-control__label"></span>' +
                 '<span class="wc-block-components-radio-control__secondary-label"></span>' +
-                '</span></span></label>';
+                '</span></span></label>' +
+                '<input type="radio" class="wc-block-components-radio-control__input" style="display:none" value="">';
 
               var labelEl = row.querySelector('.wc-block-components-radio-control__label');
               var secEl = row.querySelector('.wc-block-components-radio-control__secondary-label');
+              var hiddenInput = row.querySelector('.wc-block-components-radio-control__input');
               if (labelEl) labelEl.textContent = rate.label;
               if (secEl) secEl.textContent = rate.secondary || '';
+              if (hiddenInput) hiddenInput.value = rate.value || '';
 
               row.addEventListener('click', function() {
                 var targetModeIdx = parseInt(row.getAttribute('data-shk-mode-idx') || '0', 10);
                 var targetValue = row.getAttribute('data-shk-rate-value') || '';
+                var targetLabel = row.getAttribute('data-shk-rate-label') || '';
                 var modeEl = switchModes[targetModeIdx];
                 if (!modeEl) return;
                 modeEl.click();
                 window.setTimeout(function() {
-                  var liveOptions = shippingOptions.querySelectorAll('.wc-block-components-radio-control__option .wc-block-components-radio-control__input');
+                  var done = false;
+                  var liveOptions = shippingOptions.querySelectorAll('.wc-block-components-shipping-rates-control .wc-block-components-radio-control__option .wc-block-components-radio-control__input');
                   liveOptions.forEach(function(inp) {
                     if (String(inp.value || '') === targetValue) {
                       var lbl = inp.closest('label');
@@ -245,8 +252,29 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
                       } else {
                         inp.click();
                       }
+                      done = true;
                     }
                   });
+                  if (!done && targetLabel) {
+                    var liveRows = shippingOptions.querySelectorAll('.wc-block-components-shipping-rates-control .wc-block-components-radio-control__option');
+                    liveRows.forEach(function(liveRow) {
+                      if (done) return;
+                      var liveLabel = liveRow.querySelector('.wc-block-components-radio-control__label');
+                      var txt = liveLabel ? (liveLabel.textContent || '').trim() : '';
+                      if (txt === targetLabel) {
+                        var liveInput = liveRow.querySelector('.wc-block-components-radio-control__input');
+                        if (liveInput) {
+                          var liveLbl = liveInput.closest('label');
+                          if (liveLbl) {
+                            liveLbl.click();
+                          } else {
+                            liveInput.click();
+                          }
+                          done = true;
+                        }
+                      }
+                    }
+                  }
                 }, 250);
               });
 
