@@ -775,25 +775,35 @@ function shk_parser_import_product_row( array $row, $run_id ) {
     // 1:1 sync mode: imported donor products should be visible immediately.
     $product->set_status( 'publish' );
 
-    $regular_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price_before_discount'] ?? '' ) );
-    $sale_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price'] ?? '' ) );
-    $regular_price = str_replace( ',', '.', $regular_price );
-    $sale_price = str_replace( ',', '.', $sale_price );
+    $raw_regular_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price_before_discount'] ?? '' ) );
+    $raw_sale_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price'] ?? '' ) );
+    $raw_regular_price = str_replace( ',', '.', $raw_regular_price );
+    $raw_sale_price = str_replace( ',', '.', $raw_sale_price );
+
+    $regular_price = '';
+    $sale_price = '';
+
+    $regular_float = ( '' !== $raw_regular_price && is_numeric( $raw_regular_price ) ) ? (float) $raw_regular_price : 0.0;
+    $sale_float = ( '' !== $raw_sale_price && is_numeric( $raw_sale_price ) ) ? (float) $raw_sale_price : 0.0;
+
+    if ( $regular_float > 0 && $sale_float > 0 ) {
+        $high = max( $regular_float, $sale_float );
+        $low = min( $regular_float, $sale_float );
+        $regular_price = wc_format_decimal( $high );
+        if ( $low < $high ) {
+            $sale_price = wc_format_decimal( $low );
+        }
+    } elseif ( $sale_float > 0 ) {
+        $regular_price = wc_format_decimal( $sale_float );
+    } elseif ( $regular_float > 0 ) {
+        $regular_price = wc_format_decimal( $regular_float );
+    }
 
     if ( '' !== $regular_price ) {
         $product->set_regular_price( $regular_price );
-    } elseif ( '' !== $sale_price ) {
-        $product->set_regular_price( $sale_price );
     }
 
-    if ( '' !== $regular_price && '' !== $sale_price && (float) $sale_price < (float) $regular_price ) {
-        $product->set_sale_price( $sale_price );
-    } else {
-        $product->set_sale_price( '' );
-        if ( '' !== $sale_price ) {
-            $product->set_regular_price( $sale_price );
-        }
-    }
+    $product->set_sale_price( $sale_price );
 
     $sku = trim( (string) ( $row['sku'] ?? '' ) );
     if ( '' !== $sku ) {

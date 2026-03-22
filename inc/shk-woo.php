@@ -47,6 +47,74 @@ function shikkosa_parse_price_amount_local( $raw ) {
     return wc_format_decimal( $raw );
 }
 
+function shikkosa_normalized_raw_price_pair_local( $product_id ) {
+    $product_id = (int) $product_id;
+    if ( $product_id <= 0 ) {
+        return array( 0.0, 0.0 );
+    }
+
+    $regular_raw = get_post_meta( $product_id, '_regular_price', true );
+    $sale_raw = get_post_meta( $product_id, '_sale_price', true );
+
+    $regular = (float) shikkosa_parse_price_amount_local( $regular_raw );
+    $sale = (float) shikkosa_parse_price_amount_local( $sale_raw );
+
+    if ( $regular > 0 && $sale > 0 ) {
+        $high = max( $regular, $sale );
+        $low = min( $regular, $sale );
+        if ( $low < $high ) {
+            return array( (float) $high, (float) $low );
+        }
+        return array( (float) $high, 0.0 );
+    }
+
+    if ( $regular > 0 ) {
+        return array( (float) $regular, 0.0 );
+    }
+    if ( $sale > 0 ) {
+        return array( (float) $sale, 0.0 );
+    }
+
+    return array( 0.0, 0.0 );
+}
+
+function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
+    if ( is_admin() && ! wp_doing_ajax() ) {
+        return $price;
+    }
+    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+        return $price;
+    }
+
+    list( $normalized_regular ) = shikkosa_normalized_raw_price_pair_local( (int) $product->get_id() );
+    if ( $normalized_regular <= 0 ) {
+        return $price;
+    }
+
+    return wc_format_decimal( $normalized_regular );
+}
+
+function shikkosa_normalized_sale_price_filter_local( $price, $product ) {
+    if ( is_admin() && ! wp_doing_ajax() ) {
+        return $price;
+    }
+    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+        return $price;
+    }
+
+    list( $normalized_regular, $normalized_sale ) = shikkosa_normalized_raw_price_pair_local( (int) $product->get_id() );
+    if ( $normalized_regular <= 0 || $normalized_sale <= 0 || $normalized_sale >= $normalized_regular ) {
+        return '';
+    }
+
+    return wc_format_decimal( $normalized_sale );
+}
+
+add_filter( 'woocommerce_product_get_regular_price', 'shikkosa_normalized_regular_price_filter_local', 20, 2 );
+add_filter( 'woocommerce_product_variation_get_regular_price', 'shikkosa_normalized_regular_price_filter_local', 20, 2 );
+add_filter( 'woocommerce_product_get_sale_price', 'shikkosa_normalized_sale_price_filter_local', 20, 2 );
+add_filter( 'woocommerce_product_variation_get_sale_price', 'shikkosa_normalized_sale_price_filter_local', 20, 2 );
+
 function shikkosa_get_old_price_meta_keys_local() {
     return array(
         '_shk_price_before_discount',
