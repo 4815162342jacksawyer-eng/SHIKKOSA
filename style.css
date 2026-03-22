@@ -1386,6 +1386,7 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     position: relative !important;
     top: 3.3px !important;
     left: 0 !important;
+    margin-left: 7px !important;
 }
 .catalog-native-menu a.wishlist_products_counter.top_wishlist-heart {
     position: relative !important;
