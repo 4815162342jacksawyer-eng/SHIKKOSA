@@ -19,6 +19,35 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (title) title.textContent = text;
       }
 
+      function enforceCheckoutOrder(root) {
+        if (!root) return;
+        var contact = root.querySelector('fieldset.wc-block-checkout__contact-fields');
+        var shippingMethodSwitch = root.querySelector('fieldset.wc-block-checkout__shipping-method');
+        var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+        var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
+        var orderNotes = root.querySelector('#order-notes');
+        var payment = root.querySelector('fieldset.wc-block-checkout__payment-method');
+
+        if (!contact || !shippingOptions || !shippingFields || !payment) return;
+
+        if (shippingMethodSwitch) {
+          shippingMethodSwitch.style.setProperty('display', 'none', 'important');
+        }
+
+        if (shippingOptions.previousElementSibling !== contact && contact.parentNode) {
+          contact.insertAdjacentElement('afterend', shippingOptions);
+        }
+        if (shippingFields.previousElementSibling !== shippingOptions && shippingOptions.parentNode) {
+          shippingOptions.insertAdjacentElement('afterend', shippingFields);
+        }
+        if (orderNotes && orderNotes.previousElementSibling !== shippingFields) {
+          shippingFields.insertAdjacentElement('afterend', orderNotes);
+        }
+        if (payment.previousElementSibling !== (orderNotes || shippingFields)) {
+          (orderNotes || shippingFields).insertAdjacentElement('afterend', payment);
+        }
+      }
+
       function hideEl(root, selector) {
         if (!root) return;
         var el = root.querySelector(selector);
@@ -442,34 +471,17 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (root.dataset.shkDonorReady === '1') return true;
 
         var contact = root.querySelector('fieldset.wc-block-checkout__contact-fields');
-        var shippingMethodSwitch = root.querySelector('fieldset.wc-block-checkout__shipping-method');
         var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
         var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
         var payment = root.querySelector('fieldset.wc-block-checkout__payment-method');
 
         if (!contact || !shippingFields || !shippingOptions || !payment) return false;
-
-        if (shippingOptions.previousElementSibling !== contact && shippingOptions.previousElementSibling !== null) {
-          contact.insertAdjacentElement('afterend', shippingOptions);
-        }
-
-        if (shippingFields.previousElementSibling !== shippingOptions) {
-          shippingOptions.insertAdjacentElement('afterend', shippingFields);
-        }
-
-        var orderNotes = root.querySelector('#order-notes');
-        if (orderNotes && orderNotes.previousElementSibling !== shippingFields) {
-          shippingFields.insertAdjacentElement('afterend', orderNotes);
-        }
-
-        if (payment.previousElementSibling !== (orderNotes || shippingFields)) {
-          (orderNotes || shippingFields).insertAdjacentElement('afterend', payment);
-        }
+        enforceCheckoutOrder(root);
 
         mountUnifiedShippingRates(root);
 
         setTitle(contact, 'Заполните информацию о себе');
-        setTitle(shippingOptions, 'Адрес и способ доставки');
+        setTitle(shippingOptions, 'Параметры доставки');
         setTitle(shippingFields, 'Адрес доставки');
         setTitle(payment, 'Способ оплаты');
 
@@ -576,6 +588,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       document.addEventListener('change', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        enforceCheckoutOrder(root);
         mountUnifiedShippingRates(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
@@ -586,6 +599,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       document.addEventListener('wc-blocks_checkout_update', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        enforceCheckoutOrder(root);
         mountUnifiedShippingRates(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
