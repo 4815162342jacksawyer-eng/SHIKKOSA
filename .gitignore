@@ -1,0 +1,23 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs and temp
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Node / PHP deps (if used locally)
+node_modules/
+vendor/
+
+# Build output (optional)
+dist/
+build/
+
+# Secrets
+.env
+.env.*
