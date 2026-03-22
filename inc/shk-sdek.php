@@ -458,109 +458,163 @@ function shikkosa_sdek_settings_page() {
     }
 
     $opt = shikkosa_sdek_settings();
+    $general_rows = array(
+        array(
+            'title' => 'СДЭК дверь-дверь',
+            'label' => 'cdek_door_door_label',
+            'price' => 'cdek_door_door_price',
+            'price_comment' => 'cdek_door_door_price_comment',
+            'delivery_comment' => 'cdek_door_door_delivery_comment',
+        ),
+        array(
+            'title' => 'СДЭК дверь-склад/пункт',
+            'label' => 'cdek_door_warehouse_label',
+            'price' => 'cdek_door_warehouse_price',
+            'price_comment' => 'cdek_door_warehouse_price_comment',
+            'delivery_comment' => 'cdek_door_warehouse_delivery_comment',
+        ),
+        array(
+            'title' => 'СДЭК ПВЗ/самовывоз',
+            'label' => 'cdek_pickup_label',
+            'price' => 'cdek_pickup_price',
+            'price_comment' => 'cdek_pickup_price_comment',
+            'delivery_comment' => 'cdek_pickup_delivery_comment',
+        ),
+        array(
+            'title' => 'СДЭК Экспресс дверь-дверь',
+            'label' => 'cdek_express_door_door_label',
+            'price' => 'cdek_express_door_door_price',
+            'price_comment' => 'cdek_express_door_door_price_comment',
+            'delivery_comment' => 'cdek_express_door_door_delivery_comment',
+        ),
+    );
+
+    $split_rows = array(
+        array(
+            'title' => 'МСК/МО, ПВЗ без примерки',
+            'label' => 'msk_no_fit_label',
+            'price' => 'msk_no_fit_price',
+            'price_comment' => 'msk_no_fit_price_comment',
+            'delivery_comment' => 'msk_no_fit_delivery_comment',
+            'extra' => 'msk_no_fit_extra',
+        ),
+        array(
+            'title' => 'МСК/МО, ПВЗ с примеркой',
+            'label' => 'msk_fit_label',
+            'price' => 'msk_fit_price',
+            'price_comment' => 'msk_fit_price_comment',
+            'delivery_comment' => 'msk_fit_delivery_comment',
+            'extra' => 'msk_fit_extra',
+        ),
+        array(
+            'title' => 'РФ, ПВЗ без примерки',
+            'label' => 'rf_no_fit_label',
+            'price' => 'rf_no_fit_price',
+            'price_comment' => 'rf_no_fit_price_comment',
+            'delivery_comment' => 'rf_no_fit_delivery_comment',
+            'extra' => 'rf_no_fit_extra',
+        ),
+        array(
+            'title' => 'РФ, ПВЗ с примеркой',
+            'label' => 'rf_fit_label',
+            'price' => 'rf_fit_price',
+            'price_comment' => 'rf_fit_price_comment',
+            'delivery_comment' => 'rf_fit_delivery_comment',
+            'extra' => 'rf_fit_extra',
+        ),
+    );
     ?>
     <div class="wrap">
         <h1>SHK СДЭК</h1>
         <p>Деление только для ПВЗ СДЭК. Курьер СДЭК остаётся как в плагине.</p>
         <form method="post" action="options.php">
             <?php settings_fields( 'shikkosa_sdek_settings_group' ); ?>
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row">Включить разделение ПВЗ</th>
-                    <td>
-                        <label>
-                            <input type="checkbox" name="shikkosa_sdek_settings[enabled]" value="yes" <?php checked( $opt['enabled'], 'yes' ); ?> />
-                            Да
-                        </label>
-                    </td>
-                </tr>
-                <tr><th scope="row" colspan="2"><h2 style="margin:8px 0 0;">Все виды СДЭК (общие настройки)</h2></th></tr>
-                <tr><th scope="row">СДЭК дверь-дверь: название</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_door_label]" value="<?php echo esc_attr( $opt['cdek_door_door_label'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК дверь-дверь: стоимость</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[cdek_door_door_price]" value="<?php echo esc_attr( $opt['cdek_door_door_price'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК дверь-дверь: комментарий к цене</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_door_price_comment]" value="<?php echo esc_attr( $opt['cdek_door_door_price_comment'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК дверь-дверь: комментарий по сроку/условиям</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_door_delivery_comment]" value="<?php echo esc_attr( $opt['cdek_door_door_delivery_comment'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК дверь-склад/пункт: название</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_warehouse_label]" value="<?php echo esc_attr( $opt['cdek_door_warehouse_label'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК дверь-склад/пункт: стоимость</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[cdek_door_warehouse_price]" value="<?php echo esc_attr( $opt['cdek_door_warehouse_price'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК дверь-склад/пункт: комментарий к цене</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_warehouse_price_comment]" value="<?php echo esc_attr( $opt['cdek_door_warehouse_price_comment'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК дверь-склад/пункт: комментарий по сроку/условиям</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_warehouse_delivery_comment]" value="<?php echo esc_attr( $opt['cdek_door_warehouse_delivery_comment'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК ПВЗ/самовывоз: название</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_pickup_label]" value="<?php echo esc_attr( $opt['cdek_pickup_label'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК ПВЗ/самовывоз: стоимость</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[cdek_pickup_price]" value="<?php echo esc_attr( $opt['cdek_pickup_price'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК ПВЗ/самовывоз: комментарий к цене</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_pickup_price_comment]" value="<?php echo esc_attr( $opt['cdek_pickup_price_comment'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК ПВЗ/самовывоз: комментарий по сроку/условиям</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_pickup_delivery_comment]" value="<?php echo esc_attr( $opt['cdek_pickup_delivery_comment'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК Экспресс дверь-дверь: название</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_express_door_door_label]" value="<?php echo esc_attr( $opt['cdek_express_door_door_label'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК Экспресс дверь-дверь: стоимость</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[cdek_express_door_door_price]" value="<?php echo esc_attr( $opt['cdek_express_door_door_price'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК Экспресс дверь-дверь: комментарий к цене</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_express_door_door_price_comment]" value="<?php echo esc_attr( $opt['cdek_express_door_door_price_comment'] ); ?>" /></td></tr>
-                <tr><th scope="row">СДЭК Экспресс дверь-дверь: комментарий по сроку/условиям</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_express_door_door_delivery_comment]" value="<?php echo esc_attr( $opt['cdek_express_door_door_delivery_comment'] ); ?>" /></td></tr>
-                <tr><th scope="row" colspan="2"><h2 style="margin:8px 0 0;">Split ПВЗ (когда включено разделение)</h2></th></tr>
-                <tr><th scope="row">МСК/МО, ПВЗ без примерки (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_no_fit_extra]" value="<?php echo esc_attr( $opt['msk_no_fit_extra'] ); ?>" /></td></tr>
-                <tr><th scope="row">МСК/МО, ПВЗ с примеркой (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_fit_extra]" value="<?php echo esc_attr( $opt['msk_fit_extra'] ); ?>" /></td></tr>
-                <tr><th scope="row">РФ, ПВЗ без примерки (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_no_fit_extra]" value="<?php echo esc_attr( $opt['rf_no_fit_extra'] ); ?>" /></td></tr>
-                <tr><th scope="row">РФ, ПВЗ с примеркой (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_fit_extra]" value="<?php echo esc_attr( $opt['rf_fit_extra'] ); ?>" /></td></tr>
-                <tr>
-                    <th scope="row">МСК/МО, без примерки: название</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_no_fit_label]" value="<?php echo esc_attr( $opt['msk_no_fit_label'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">МСК/МО, без примерки: стоимость</th>
-                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_no_fit_price]" value="<?php echo esc_attr( $opt['msk_no_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
-                </tr>
-                <tr>
-                    <th scope="row">МСК/МО, без примерки: комментарий к цене</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_no_fit_price_comment]" value="<?php echo esc_attr( $opt['msk_no_fit_price_comment'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">МСК/МО, без примерки: комментарий по сроку/условиям</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_no_fit_delivery_comment]" value="<?php echo esc_attr( $opt['msk_no_fit_delivery_comment'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">МСК/МО, с примеркой: название</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_fit_label]" value="<?php echo esc_attr( $opt['msk_fit_label'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">МСК/МО, с примеркой: стоимость</th>
-                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_fit_price]" value="<?php echo esc_attr( $opt['msk_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
-                </tr>
-                <tr>
-                    <th scope="row">МСК/МО, с примеркой: комментарий к цене</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_fit_price_comment]" value="<?php echo esc_attr( $opt['msk_fit_price_comment'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">МСК/МО, с примеркой: комментарий по сроку/условиям</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[msk_fit_delivery_comment]" value="<?php echo esc_attr( $opt['msk_fit_delivery_comment'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">РФ, без примерки: название</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_no_fit_label]" value="<?php echo esc_attr( $opt['rf_no_fit_label'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">РФ, без примерки: стоимость</th>
-                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_no_fit_price]" value="<?php echo esc_attr( $opt['rf_no_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
-                </tr>
-                <tr>
-                    <th scope="row">РФ, без примерки: комментарий к цене</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_no_fit_price_comment]" value="<?php echo esc_attr( $opt['rf_no_fit_price_comment'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">РФ, без примерки: комментарий по сроку/условиям</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_no_fit_delivery_comment]" value="<?php echo esc_attr( $opt['rf_no_fit_delivery_comment'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">РФ, с примеркой: название</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_fit_label]" value="<?php echo esc_attr( $opt['rf_fit_label'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">РФ, с примеркой: стоимость</th>
-                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_fit_price]" value="<?php echo esc_attr( $opt['rf_fit_price'] ); ?>" /> <p class="description">Если пусто — берётся базовая цена + добавка.</p></td>
-                </tr>
-                <tr>
-                    <th scope="row">РФ, с примеркой: комментарий к цене</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_fit_price_comment]" value="<?php echo esc_attr( $opt['rf_fit_price_comment'] ); ?>" /></td>
-                </tr>
-                <tr>
-                    <th scope="row">РФ, с примеркой: комментарий по сроку/условиям</th>
-                    <td><input type="text" class="regular-text" name="shikkosa_sdek_settings[rf_fit_delivery_comment]" value="<?php echo esc_attr( $opt['rf_fit_delivery_comment'] ); ?>" /></td>
-                </tr>
+            <style>
+                .shk-sdek-inline-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 10px 0 18px;
+                    table-layout: fixed;
+                }
+                .shk-sdek-inline-table th,
+                .shk-sdek-inline-table td {
+                    border: 1px solid #dcdcde;
+                    padding: 8px;
+                    vertical-align: top;
+                }
+                .shk-sdek-inline-table th {
+                    background: #f6f7f7;
+                    font-weight: 600;
+                    text-align: left;
+                }
+                .shk-sdek-inline-table td input[type="text"],
+                .shk-sdek-inline-table td input[type="number"] {
+                    width: 100%;
+                    box-sizing: border-box;
+                }
+                .shk-sdek-inline-compact {
+                    margin-top: 6px;
+                }
+            </style>
+
+            <div class="shk-sdek-inline-compact">
+                <label>
+                    <input type="checkbox" name="shikkosa_sdek_settings[enabled]" value="yes" <?php checked( $opt['enabled'], 'yes' ); ?> />
+                    Включить разделение ПВЗ
+                </label>
+            </div>
+
+            <h2>Все виды СДЭК (общие настройки)</h2>
+            <table class="shk-sdek-inline-table" role="presentation">
+                <thead>
+                    <tr>
+                        <th style="width:16%">Тип доставки</th>
+                        <th style="width:22%">Название</th>
+                        <th style="width:10%">Стоимость</th>
+                        <th style="width:26%">Комментарий к цене</th>
+                        <th style="width:26%">Комментарий по сроку/условиям</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ( $general_rows as $row ) : ?>
+                        <tr>
+                            <td><?php echo esc_html( $row['title'] ); ?></td>
+                            <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['label'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['label'] ] ); ?>" /></td>
+                            <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['price'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['price'] ] ); ?>" /></td>
+                            <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['price_comment'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['price_comment'] ] ); ?>" /></td>
+                            <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['delivery_comment'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['delivery_comment'] ] ); ?>" /></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
             </table>
+
+            <h2>Split ПВЗ (когда включено разделение)</h2>
+            <table class="shk-sdek-inline-table" role="presentation">
+                <thead>
+                    <tr>
+                        <th style="width:16%">Вариант</th>
+                        <th style="width:10%">Добавка</th>
+                        <th style="width:22%">Название</th>
+                        <th style="width:10%">Стоимость</th>
+                        <th style="width:21%">Комментарий к цене</th>
+                        <th style="width:21%">Комментарий по сроку/условиям</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ( $split_rows as $row ) : ?>
+                        <tr>
+                            <td><?php echo esc_html( $row['title'] ); ?></td>
+                            <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['extra'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['extra'] ] ); ?>" /></td>
+                            <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['label'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['label'] ] ); ?>" /></td>
+                            <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['price'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['price'] ] ); ?>" /></td>
+                            <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['price_comment'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['price_comment'] ] ); ?>" /></td>
+                            <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $row['delivery_comment'] ); ?>]" value="<?php echo esc_attr( $opt[ $row['delivery_comment'] ] ); ?>" /></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+
+            <p class="description">Если поле «Стоимость» пустое, используется стандартная цена метода (или базовая цена + добавка для split).</p>
             <?php submit_button(); ?>
         </form>
 
