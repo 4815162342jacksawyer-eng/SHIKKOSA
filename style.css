@@ -1344,6 +1344,7 @@ span.wishlist_products_counter_number{
     flex: 0 0 auto !important;
     display: flex !important;
     align-items: center !important;
+    line-height: 1 !important;
 }
 .catalog-native-menu > .e-n-menu-item:nth-last-child(-n+4) .e-n-menu-title-container {
     padding-inline: 1px !important;
@@ -1360,6 +1361,8 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     height: 18px !important;
     font-size: 18px !important;
     line-height: 18px !important;
+    display: block !important;
+    vertical-align: middle !important;
 }
 #search_top_menu .e-font-icon-svg {
     width: 18px !important;
@@ -1401,7 +1404,7 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     top: 50% !important;
     left: 100% !important;
     right: auto !important;
-    margin-left: 4px !important;
+    margin-left: 5px !important;
     transform: translateY(-50%) !important;
 }
 .catalog-native-menu .elementor-menu-cart__toggle .elementor-button-icon-qty {
@@ -1415,8 +1418,8 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     align-items: center !important;
 }
 .catalog-native-menu a.wishlist_products_counter.top_wishlist-heart::before {
-    font-size: 22px !important;
-    line-height: 22px !important;
+    font-size: 23px !important;
+    line-height: 23px !important;
 }
 
 .telegram-link::after {
