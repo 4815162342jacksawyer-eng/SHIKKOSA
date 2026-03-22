@@ -18,6 +18,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 function shikkosa_sdek_settings_default() {
     return array(
         'enabled'            => 'yes',
+        'cdek_door_door_label'   => '',
+        'cdek_door_door_price'   => '',
+        'cdek_door_door_price_comment' => '',
+        'cdek_door_door_delivery_comment' => '',
+        'cdek_door_warehouse_label'   => '',
+        'cdek_door_warehouse_price'   => '',
+        'cdek_door_warehouse_price_comment' => '',
+        'cdek_door_warehouse_delivery_comment' => '',
+        'cdek_pickup_label'   => '',
+        'cdek_pickup_price'   => '',
+        'cdek_pickup_price_comment' => '',
+        'cdek_pickup_delivery_comment' => '',
+        'cdek_express_door_door_label'   => '',
+        'cdek_express_door_door_price'   => '',
+        'cdek_express_door_door_price_comment' => '',
+        'cdek_express_door_door_delivery_comment' => '',
         'msk_no_fit_label'   => 'СДЭК ПВЗ (МСК/МО, без примерки)',
         'msk_fit_label'      => 'СДЭК ПВЗ (МСК/МО, с примеркой)',
         'rf_no_fit_label'    => 'СДЭК ПВЗ (РФ, без примерки)',
@@ -67,13 +83,31 @@ function shikkosa_sdek_settings_sanitize( $input ) {
     $out = wp_parse_args( $input, $defaults );
     $out['enabled'] = ( isset( $input['enabled'] ) && 'yes' === (string) $input['enabled'] ) ? 'yes' : 'no';
 
-    foreach ( array( 'msk_no_fit_label', 'msk_fit_label', 'rf_no_fit_label', 'rf_fit_label' ) as $key ) {
+    foreach ( array(
+        'cdek_door_door_label',
+        'cdek_door_warehouse_label',
+        'cdek_pickup_label',
+        'cdek_express_door_door_label',
+        'msk_no_fit_label',
+        'msk_fit_label',
+        'rf_no_fit_label',
+        'rf_fit_label',
+    ) as $key ) {
         $value = isset( $input[ $key ] ) ? $input[ $key ] : $defaults[ $key ];
         $value = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : (string) $defaults[ $key ];
-        $out[ $key ] = '' !== $value ? $value : (string) $defaults[ $key ];
+        $out[ $key ] = $value;
     }
 
-    foreach ( array( 'msk_no_fit_price', 'msk_fit_price', 'rf_no_fit_price', 'rf_fit_price' ) as $key ) {
+    foreach ( array(
+        'cdek_door_door_price',
+        'cdek_door_warehouse_price',
+        'cdek_pickup_price',
+        'cdek_express_door_door_price',
+        'msk_no_fit_price',
+        'msk_fit_price',
+        'rf_no_fit_price',
+        'rf_fit_price',
+    ) as $key ) {
         $value = isset( $input[ $key ] ) ? $input[ $key ] : '';
         if ( '' === trim( (string) $value ) ) {
             $out[ $key ] = '';
@@ -83,6 +117,14 @@ function shikkosa_sdek_settings_sanitize( $input ) {
     }
 
     foreach ( array(
+        'cdek_door_door_price_comment',
+        'cdek_door_warehouse_price_comment',
+        'cdek_pickup_price_comment',
+        'cdek_express_door_door_price_comment',
+        'cdek_door_door_delivery_comment',
+        'cdek_door_warehouse_delivery_comment',
+        'cdek_pickup_delivery_comment',
+        'cdek_express_door_door_delivery_comment',
         'msk_no_fit_price_comment',
         'msk_fit_price_comment',
         'rf_no_fit_price_comment',
@@ -102,6 +144,75 @@ function shikkosa_sdek_settings_sanitize( $input ) {
     }
 
     return $out;
+}
+
+function shikkosa_sdek_rate_profile_code( $rate ) {
+    $s = shikkosa_sdek_rate_string( $rate );
+    if ( '' === $s ) {
+        return '';
+    }
+
+    $is_express = ( false !== strpos( $s, 'экспресс' ) || false !== strpos( $s, 'express' ) );
+    $has_door   = ( false !== strpos( $s, 'двер' ) || false !== strpos( $s, 'door' ) );
+    $has_sklad  = ( false !== strpos( $s, 'склад' ) || false !== strpos( $s, 'warehouse' ) );
+    $has_pickup = ( false !== strpos( $s, 'пвз' ) || false !== strpos( $s, 'пункт' ) || false !== strpos( $s, 'pickup' ) || false !== strpos( $s, 'самовывоз' ) );
+
+    if ( $is_express && $has_door ) {
+        return 'cdek_express_door_door';
+    }
+    if ( $has_door && $has_sklad ) {
+        return 'cdek_door_warehouse';
+    }
+    if ( $has_door && false !== strpos( $s, 'двер-двер' ) ) {
+        return 'cdek_door_door';
+    }
+    if ( $has_door && false !== strpos( $s, 'door-door' ) ) {
+        return 'cdek_door_door';
+    }
+    if ( $has_pickup ) {
+        return 'cdek_pickup';
+    }
+    if ( $has_door ) {
+        return 'cdek_door_door';
+    }
+
+    return '';
+}
+
+function shikkosa_sdek_apply_profile_overrides( $rate, $settings, $profile ) {
+    if ( ! $rate || ! is_a( $rate, 'WC_Shipping_Rate' ) || '' === $profile ) {
+        return $rate;
+    }
+
+    $label_key = $profile . '_label';
+    $price_key = $profile . '_price';
+    $price_comment_key = $profile . '_price_comment';
+    $delivery_comment_key = $profile . '_delivery_comment';
+
+    $current_label = method_exists( $rate, 'get_label' ) ? (string) $rate->get_label() : '';
+    $label = isset( $settings[ $label_key ] ) ? trim( (string) $settings[ $label_key ] ) : '';
+    if ( '' === $label ) {
+        $label = $current_label;
+    }
+
+    $current_cost = method_exists( $rate, 'get_cost' ) ? (float) $rate->get_cost() : 0.0;
+    $fixed_price  = isset( $settings[ $price_key ] ) ? trim( (string) $settings[ $price_key ] ) : '';
+    $cost         = ( '' !== $fixed_price && is_numeric( $fixed_price ) ) ? max( 0.0, (float) $fixed_price ) : $current_cost;
+
+    $rate_id = method_exists( $rate, 'get_id' ) ? (string) $rate->get_id() : uniqid( 'shk_sdek_', true );
+    $new_rate = shikkosa_clone_rate_with_label_and_cost( $rate, $rate_id, $label, $cost );
+
+    $price_comment = isset( $settings[ $price_comment_key ] ) ? trim( (string) $settings[ $price_comment_key ] ) : '';
+    $delivery_comment = isset( $settings[ $delivery_comment_key ] ) ? trim( (string) $settings[ $delivery_comment_key ] ) : '';
+
+    if ( '' !== $price_comment ) {
+        $new_rate->add_meta_data( '_shk_price_comment', $price_comment, true );
+    }
+    if ( '' !== $delivery_comment ) {
+        $new_rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
+    }
+
+    return $new_rate;
 }
 
 function shikkosa_sdek_rate_string( $rate ) {
@@ -214,11 +325,8 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     }
 
     $settings = shikkosa_sdek_settings();
-    if ( 'yes' !== (string) $settings['enabled'] ) {
-        return $rates;
-    }
-
     $is_msk_mo = shikkosa_is_msk_mo_destination( $package );
+    $split_enabled = ( 'yes' === (string) $settings['enabled'] );
 
     $new_rates = array();
 
@@ -234,9 +342,11 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
             continue;
         }
 
+        $profile = shikkosa_sdek_rate_profile_code( $rate );
+
         // Keep CDEK courier untouched; split only pickup/PVZ.
-        if ( ! shikkosa_is_cdek_pickup_rate( $rate ) ) {
-            $new_rates[ $rate_id ] = $rate;
+        if ( ! $split_enabled || ! shikkosa_is_cdek_pickup_rate( $rate ) ) {
+            $new_rates[ $rate_id ] = shikkosa_sdek_apply_profile_overrides( $rate, $settings, $profile );
             continue;
         }
 
@@ -364,6 +474,24 @@ function shikkosa_sdek_settings_page() {
                         </label>
                     </td>
                 </tr>
+                <tr><th scope="row" colspan="2"><h2 style="margin:8px 0 0;">Все виды СДЭК (общие настройки)</h2></th></tr>
+                <tr><th scope="row">СДЭК дверь-дверь: название</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_door_label]" value="<?php echo esc_attr( $opt['cdek_door_door_label'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК дверь-дверь: стоимость</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[cdek_door_door_price]" value="<?php echo esc_attr( $opt['cdek_door_door_price'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК дверь-дверь: комментарий к цене</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_door_price_comment]" value="<?php echo esc_attr( $opt['cdek_door_door_price_comment'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК дверь-дверь: комментарий по сроку/условиям</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_door_delivery_comment]" value="<?php echo esc_attr( $opt['cdek_door_door_delivery_comment'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК дверь-склад/пункт: название</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_warehouse_label]" value="<?php echo esc_attr( $opt['cdek_door_warehouse_label'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК дверь-склад/пункт: стоимость</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[cdek_door_warehouse_price]" value="<?php echo esc_attr( $opt['cdek_door_warehouse_price'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК дверь-склад/пункт: комментарий к цене</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_warehouse_price_comment]" value="<?php echo esc_attr( $opt['cdek_door_warehouse_price_comment'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК дверь-склад/пункт: комментарий по сроку/условиям</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_door_warehouse_delivery_comment]" value="<?php echo esc_attr( $opt['cdek_door_warehouse_delivery_comment'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК ПВЗ/самовывоз: название</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_pickup_label]" value="<?php echo esc_attr( $opt['cdek_pickup_label'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК ПВЗ/самовывоз: стоимость</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[cdek_pickup_price]" value="<?php echo esc_attr( $opt['cdek_pickup_price'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК ПВЗ/самовывоз: комментарий к цене</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_pickup_price_comment]" value="<?php echo esc_attr( $opt['cdek_pickup_price_comment'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК ПВЗ/самовывоз: комментарий по сроку/условиям</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_pickup_delivery_comment]" value="<?php echo esc_attr( $opt['cdek_pickup_delivery_comment'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК Экспресс дверь-дверь: название</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_express_door_door_label]" value="<?php echo esc_attr( $opt['cdek_express_door_door_label'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК Экспресс дверь-дверь: стоимость</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[cdek_express_door_door_price]" value="<?php echo esc_attr( $opt['cdek_express_door_door_price'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК Экспресс дверь-дверь: комментарий к цене</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_express_door_door_price_comment]" value="<?php echo esc_attr( $opt['cdek_express_door_door_price_comment'] ); ?>" /></td></tr>
+                <tr><th scope="row">СДЭК Экспресс дверь-дверь: комментарий по сроку/условиям</th><td><input type="text" class="regular-text" name="shikkosa_sdek_settings[cdek_express_door_door_delivery_comment]" value="<?php echo esc_attr( $opt['cdek_express_door_door_delivery_comment'] ); ?>" /></td></tr>
+                <tr><th scope="row" colspan="2"><h2 style="margin:8px 0 0;">Split ПВЗ (когда включено разделение)</h2></th></tr>
                 <tr><th scope="row">МСК/МО, ПВЗ без примерки (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_no_fit_extra]" value="<?php echo esc_attr( $opt['msk_no_fit_extra'] ); ?>" /></td></tr>
                 <tr><th scope="row">МСК/МО, ПВЗ с примеркой (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[msk_fit_extra]" value="<?php echo esc_attr( $opt['msk_fit_extra'] ); ?>" /></td></tr>
                 <tr><th scope="row">РФ, ПВЗ без примерки (добавка к базовой цене)</th><td><input type="number" step="0.01" name="shikkosa_sdek_settings[rf_no_fit_extra]" value="<?php echo esc_attr( $opt['rf_no_fit_extra'] ); ?>" /></td></tr>
@@ -457,6 +585,22 @@ function shikkosa_sdek_checkout_notes_blocks() {
 
     $opt = shikkosa_sdek_settings();
     $notes = array(
+        'cdek_door_door' => array(
+            'price'    => isset( $opt['cdek_door_door_price_comment'] ) ? (string) $opt['cdek_door_door_price_comment'] : '',
+            'delivery' => isset( $opt['cdek_door_door_delivery_comment'] ) ? (string) $opt['cdek_door_door_delivery_comment'] : '',
+        ),
+        'cdek_door_warehouse' => array(
+            'price'    => isset( $opt['cdek_door_warehouse_price_comment'] ) ? (string) $opt['cdek_door_warehouse_price_comment'] : '',
+            'delivery' => isset( $opt['cdek_door_warehouse_delivery_comment'] ) ? (string) $opt['cdek_door_warehouse_delivery_comment'] : '',
+        ),
+        'cdek_pickup' => array(
+            'price'    => isset( $opt['cdek_pickup_price_comment'] ) ? (string) $opt['cdek_pickup_price_comment'] : '',
+            'delivery' => isset( $opt['cdek_pickup_delivery_comment'] ) ? (string) $opt['cdek_pickup_delivery_comment'] : '',
+        ),
+        'cdek_express_door_door' => array(
+            'price'    => isset( $opt['cdek_express_door_door_price_comment'] ) ? (string) $opt['cdek_express_door_door_price_comment'] : '',
+            'delivery' => isset( $opt['cdek_express_door_door_delivery_comment'] ) ? (string) $opt['cdek_express_door_door_delivery_comment'] : '',
+        ),
         'pvz_msk_no_fit' => array(
             'price'    => isset( $opt['msk_no_fit_price_comment'] ) ? (string) $opt['msk_no_fit_price_comment'] : '',
             'delivery' => isset( $opt['msk_no_fit_delivery_comment'] ) ? (string) $opt['msk_no_fit_delivery_comment'] : '',
@@ -485,6 +629,10 @@ function shikkosa_sdek_checkout_notes_blocks() {
         if (hay.indexOf('pvz_msk_fit') !== -1) return 'pvz_msk_fit';
         if (hay.indexOf('pvz_rf_no_fit') !== -1) return 'pvz_rf_no_fit';
         if (hay.indexOf('pvz_rf_fit') !== -1) return 'pvz_rf_fit';
+        if (hay.indexOf('экспресс') !== -1 || hay.indexOf('express') !== -1) return 'cdek_express_door_door';
+        if (hay.indexOf('двер') !== -1 && hay.indexOf('склад') !== -1) return 'cdek_door_warehouse';
+        if (hay.indexOf('пвз') !== -1 || hay.indexOf('пункт') !== -1 || hay.indexOf('pickup') !== -1 || hay.indexOf('самовывоз') !== -1) return 'cdek_pickup';
+        if (hay.indexOf('двер') !== -1 || hay.indexOf('door') !== -1) return 'cdek_door_door';
         return '';
       }
 
@@ -495,8 +643,10 @@ function shikkosa_sdek_checkout_notes_blocks() {
         options.forEach(function (opt) {
           var input = opt.querySelector('.wc-block-components-radio-control__input');
           if (!input) return;
+          var labelTextNode = opt.querySelector('.wc-block-components-radio-control__label');
+          var labelText = labelTextNode ? labelTextNode.textContent : '';
 
-          var code = detectCode(input.value, input.id);
+          var code = detectCode((input.value || '') + ' ' + labelText, input.id);
           if (!code || !notes[code]) return;
 
           var noteData = notes[code];
