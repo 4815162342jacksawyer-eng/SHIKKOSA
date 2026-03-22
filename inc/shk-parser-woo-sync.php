@@ -839,8 +839,42 @@ function shk_parser_import_product_row( array $row, $run_id ) {
 }
 
 function shk_parser_normalize_prices_from_row( array $row ) {
-    $raw_regular_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price_before_discount'] ?? '' ) );
-    $raw_sale_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price'] ?? '' ) );
+    $pick_first = static function( array $keys ) use ( $row ) {
+        foreach ( $keys as $key ) {
+            $key = (string) $key;
+            if ( '' === $key ) {
+                continue;
+            }
+            if ( array_key_exists( $key, $row ) ) {
+                $value = trim( (string) $row[ $key ] );
+                if ( '' !== $value ) {
+                    return $value;
+                }
+            }
+        }
+        return '';
+    };
+
+    $raw_regular_input = $pick_first( [
+        'price_before_discount',
+        'regular_price',
+        'price_regular',
+        'old_price',
+        'price_old',
+        'oldprice',
+        'regular',
+    ] );
+    $raw_sale_input = $pick_first( [
+        'price',
+        'sale_price',
+        'price_sale',
+        'current_price',
+        'actual_price',
+        'sale',
+    ] );
+
+    $raw_regular_price = preg_replace( '/[^\d.,]/', '', $raw_regular_input );
+    $raw_sale_price = preg_replace( '/[^\d.,]/', '', $raw_sale_input );
     $raw_regular_price = str_replace( ',', '.', (string) $raw_regular_price );
     $raw_sale_price = str_replace( ',', '.', (string) $raw_sale_price );
 
@@ -940,6 +974,7 @@ function shk_parser_repair_from_run( $run_id ) {
         'products_matched'        => 0,
         'converted_to_simple'     => 0,
         'prices_updated'          => 0,
+        'prices_rewritten'        => 0,
         'prices_swapped_detected' => 0,
         'meta_products_filled'    => 0,
         'meta_fields_filled'      => 0,
@@ -1034,14 +1069,12 @@ function shk_parser_repair_from_run( $run_id ) {
         $new_regular = ( '' !== $regular_price ) ? (float) $regular_price : 0.0;
         $new_sale = ( '' !== $sale_price ) ? (float) $sale_price : 0.0;
 
-        if ( abs( $old_regular - $new_regular ) < 0.00001 && abs( $old_sale - $new_sale ) < 0.00001 ) {
-            continue;
-        }
-
         $effective_price = ( '' !== $sale_price ) ? $sale_price : $regular_price;
         if ( '' === $effective_price ) {
             $effective_price = wc_format_decimal( $new_regular );
         }
+
+        $is_price_changed = !( abs( $old_regular - $new_regular ) < 0.00001 && abs( $old_sale - $new_sale ) < 0.00001 );
 
         update_post_meta( $product_id, '_regular_price', $regular_price );
         update_post_meta( $product_id, '_sale_price', $sale_price );
@@ -1058,7 +1091,10 @@ function shk_parser_repair_from_run( $run_id ) {
             wc_delete_product_transients( $product_id );
         }
 
-        $stats['prices_updated']++;
+        $stats['prices_rewritten']++;
+        if ( $is_price_changed ) {
+            $stats['prices_updated']++;
+        }
     }
 
     $related_bucket = [];

@@ -846,6 +846,7 @@ function shk_parser_render_admin_page() {
                     `Найдено в Woo: ${r.products_matched || 0}\n` +
                     `Переведено в simple: ${r.converted_to_simple || 0}\n` +
                     `Обновлено цен: ${r.prices_updated || 0}\n` +
+                    `Перезаписано цен (rewrite): ${r.prices_rewritten || 0}\n` +
                     `Найдено перевернутых цен: ${r.prices_swapped_detected || 0}\n` +
                     `Товаров с дозаполненной метой: ${r.meta_products_filled || 0}\n` +
                     `Заполнено meta-полей: ${r.meta_fields_filled || 0}\n` +
