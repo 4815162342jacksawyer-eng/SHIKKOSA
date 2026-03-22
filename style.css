@@ -353,9 +353,28 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-privacy-consent .custom-control-input {
     margin: 0;
-    width: 16px;
-    height: 16px;
-    accent-color: var(--e-global-color-primary);
+    width: 20px;
+    height: 20px;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    border-radius: 50%;
+    border: 2px solid var(--e-global-color-primary) !important;
+    background: #fff;
+    box-shadow: none !important;
+    cursor: pointer;
+    position: relative;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-privacy-consent .custom-control-input:checked::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--e-global-color-primary);
+    transform: translate(-50%, -50%);
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-privacy-consent .custom-control-label {
