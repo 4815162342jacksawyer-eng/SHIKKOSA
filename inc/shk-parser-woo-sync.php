@@ -876,6 +876,15 @@ function shk_parser_row_meta_value( array $row, $key ) {
     return trim( (string) ( $row[ $key ] ?? '' ) );
 }
 
+function shk_parser_parse_price_scalar( $raw ) {
+    $raw = preg_replace( '/[^\d.,]/', '', (string) $raw );
+    $raw = str_replace( ',', '.', (string) $raw );
+    if ( '' === $raw || ! is_numeric( $raw ) ) {
+        return 0.0;
+    }
+    return (float) $raw;
+}
+
 function shk_parser_ensure_product_simple_type( $product_id ) {
     $product_id = (int) $product_id;
     if ( $product_id <= 0 ) {
@@ -1007,11 +1016,21 @@ function shk_parser_repair_from_run( $run_id ) {
         }
 
         if ( '' === $regular_price && '' === $sale_price ) {
-            continue;
+            // Fallback for already imported rows with missing CSV prices:
+            // if DB raw pair is inverted (regular < sale), swap physically.
+            $raw_regular = shk_parser_parse_price_scalar( get_post_meta( $product_id, '_regular_price', true ) );
+            $raw_sale = shk_parser_parse_price_scalar( get_post_meta( $product_id, '_sale_price', true ) );
+            if ( $raw_regular > 0 && $raw_sale > 0 && $raw_regular < $raw_sale ) {
+                $regular_price = wc_format_decimal( $raw_sale );
+                $sale_price = wc_format_decimal( $raw_regular );
+                $stats['prices_swapped_detected']++;
+            } else {
+                continue;
+            }
         }
 
-        $old_regular = (float) $product->get_regular_price();
-        $old_sale = (float) $product->get_sale_price();
+        $old_regular = shk_parser_parse_price_scalar( get_post_meta( $product_id, '_regular_price', true ) );
+        $old_sale = shk_parser_parse_price_scalar( get_post_meta( $product_id, '_sale_price', true ) );
         $new_regular = ( '' !== $regular_price ) ? (float) $regular_price : 0.0;
         $new_sale = ( '' !== $sale_price ) ? (float) $sale_price : 0.0;
 
@@ -1019,10 +1038,20 @@ function shk_parser_repair_from_run( $run_id ) {
             continue;
         }
 
-        if ( '' !== $regular_price ) {
-            $product->set_regular_price( $regular_price );
+        $effective_price = ( '' !== $sale_price ) ? $sale_price : $regular_price;
+        if ( '' === $effective_price ) {
+            $effective_price = wc_format_decimal( $new_regular );
         }
+
+        update_post_meta( $product_id, '_regular_price', $regular_price );
+        update_post_meta( $product_id, '_sale_price', $sale_price );
+        update_post_meta( $product_id, '_price', $effective_price );
+
+        $product->set_regular_price( $regular_price );
         $product->set_sale_price( $sale_price );
+        if ( method_exists( $product, 'set_price' ) ) {
+            $product->set_price( $effective_price );
+        }
         $product->save();
 
         if ( function_exists( 'wc_delete_product_transients' ) ) {
