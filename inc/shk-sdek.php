@@ -466,7 +466,8 @@ function shikkosa_sdek_store_checkout_meta( $order, $data ) {
     }
 }
 
-add_action( 'admin_menu', 'shikkosa_sdek_settings_menu' );
+// Legacy left-menu page is disabled: settings are managed in WooCommerce -> Settings -> Shipping -> SHK СДЭК.
+// add_action( 'admin_menu', 'shikkosa_sdek_settings_menu' );
 function shikkosa_sdek_settings_menu() {
     add_submenu_page(
         'woocommerce',
@@ -657,11 +658,16 @@ function shikkosa_sdek_render_wc_shipping_manager() {
         <table class="shk-sdek-inline-table" role="presentation">
             <thead>
                 <tr>
-                    <th style="width:20%">Тип</th>
-                    <th style="width:24%">Название</th>
-                    <th style="width:10%">Стоимость</th>
-                    <th style="width:23%">Комментарий к цене</th>
-                    <th style="width:23%">Комментарий по сроку/условиям</th>
+                    <th style="width:14%">Тип</th>
+                    <th style="width:14%">Название</th>
+                    <th style="width:8%">Стоимость</th>
+                    <th style="width:12%">Комментарий к цене</th>
+                    <th style="width:12%">Комментарий по сроку/условиям</th>
+                    <th style="width:8%">Доп. вариант</th>
+                    <th style="width:14%">Название (копия)</th>
+                    <th style="width:8%">Стоимость (копия)</th>
+                    <th style="width:10%">Коммент. к цене (копия)</th>
+                    <th style="width:10%">Коммент. по сроку (копия)</th>
                 </tr>
             </thead>
             <tbody>
@@ -673,43 +679,17 @@ function shikkosa_sdek_render_wc_shipping_manager() {
                     <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_price]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_price' ] ) ? $opt[ $profile_code . '_price' ] : '' ); ?>" /></td>
                     <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_price_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_price_comment' ] ) ? $opt[ $profile_code . '_price_comment' ] : '' ); ?>" /></td>
                     <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_delivery_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_delivery_comment' ] ) ? $opt[ $profile_code . '_delivery_comment' ] : '' ); ?>" /></td>
+                    <td style="text-align:center"><input type="checkbox" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_enabled]" value="yes" <?php checked( isset( $opt[ $profile_code . '_variant_enabled' ] ) ? $opt[ $profile_code . '_variant_enabled' ] : 'no', 'yes' ); ?> /></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_label]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_label' ] ) ? $opt[ $profile_code . '_variant_label' ] : '' ); ?>" /></td>
+                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_price]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_price' ] ) ? $opt[ $profile_code . '_variant_price' ] : '' ); ?>" /></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_price_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_price_comment' ] ) ? $opt[ $profile_code . '_variant_price_comment' ] : '' ); ?>" /></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_delivery_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_delivery_comment' ] ) ? $opt[ $profile_code . '_variant_delivery_comment' ] : '' ); ?>" /></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
         </table>
     <?php endif; ?>
-
-    <h3>Доп. варианты (второй вариант того же метода)</h3>
-    <table class="shk-sdek-inline-table" role="presentation">
-        <thead>
-            <tr>
-                <th style="width:18%">Тип</th>
-                <th style="width:8%">Вкл</th>
-                <th style="width:20%">Название</th>
-                <th style="width:10%">Стоимость</th>
-                <th style="width:21%">Комментарий к цене</th>
-                <th style="width:21%">Комментарий по сроку/условиям</th>
-            </tr>
-        </thead>
-        <tbody>
-        <?php foreach ( $active_profiles as $profile_code ) : ?>
-            <?php if ( ! isset( $title_map[ $profile_code ] ) ) { continue; } ?>
-            <tr>
-                <td><?php echo esc_html( $title_map[ $profile_code ] ); ?></td>
-                <td>
-                    <label>
-                        <input type="checkbox" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_enabled]" value="yes" <?php checked( isset( $opt[ $profile_code . '_variant_enabled' ] ) ? $opt[ $profile_code . '_variant_enabled' ] : 'no', 'yes' ); ?> />
-                    </label>
-                </td>
-                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_label]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_label' ] ) ? $opt[ $profile_code . '_variant_label' ] : '' ); ?>" /></td>
-                <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_price]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_price' ] ) ? $opt[ $profile_code . '_variant_price' ] : '' ); ?>" /></td>
-                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_price_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_price_comment' ] ) ? $opt[ $profile_code . '_variant_price_comment' ] : '' ); ?>" /></td>
-                <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_variant_delivery_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_variant_delivery_comment' ] ) ? $opt[ $profile_code . '_variant_delivery_comment' ] : '' ); ?>" /></td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
-    <p class="description">Если включить строку, в checkout появится второй вариант этого же метода. Пустая стоимость = цена основного варианта.</p>
+    <p class="description">Если включить чекбокс «Доп. вариант», в checkout под текущим методом появится его копия. Пустая стоимость копии = цена основного варианта.</p>
     <?php
 }
 
