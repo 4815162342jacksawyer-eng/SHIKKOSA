@@ -160,6 +160,25 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
       }
 
+      function moveOrderItemsToMainTop(root) {
+        if (!root) return;
+
+        var form = root.querySelector('.wc-block-checkout__main .wc-block-checkout__form');
+        var itemsBlock = root.querySelector('.wc-block-checkout__sidebar .wp-block-woocommerce-checkout-order-summary-cart-items-block');
+        if (!form || !itemsBlock) return;
+
+        var mount = form.querySelector('.shk-main-order-items');
+        if (!mount) {
+          mount = document.createElement('div');
+          mount.className = 'shk-main-order-items';
+          form.insertAdjacentElement('afterbegin', mount);
+        }
+
+        if (itemsBlock.parentElement !== mount) {
+          mount.appendChild(itemsBlock);
+        }
+      }
+
       function ensurePrivacyConsentInSummary(root) {
         if (!root) return;
 
@@ -334,6 +353,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
 
         forceOrderNote(root);
+        moveOrderItemsToMainTop(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
 
@@ -356,12 +376,14 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       document.addEventListener('change', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        moveOrderItemsToMainTop(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
       });
 
       document.addEventListener('wc-blocks_checkout_update', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        moveOrderItemsToMainTop(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
       });
