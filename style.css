@@ -1383,6 +1383,8 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     top: 0 !important;
 }
 .elementor-button-icon svg {
+    position: relative !important;
+    top: 3.3px !important;
     left: 0 !important;
 }
 .catalog-native-menu a.wishlist_products_counter.top_wishlist-heart {
