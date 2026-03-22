@@ -87,6 +87,27 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
       }
 
+      function setupCityPostcode(shippingForm) {
+        if (!shippingForm) return;
+
+        var cityWrap = shippingForm.querySelector('.wc-block-components-address-form__city');
+        var postcodeWrap = shippingForm.querySelector('.wc-block-components-address-form__postcode');
+        if (!cityWrap || !postcodeWrap) return;
+
+        var postcodeLabel = postcodeWrap.querySelector('label');
+        if (postcodeLabel) postcodeLabel.textContent = 'Индекс';
+
+        var row = shippingForm.querySelector('.shk-city-postcode');
+        if (!row) {
+          row = document.createElement('div');
+          row.className = 'shk-city-postcode';
+          postcodeWrap.insertAdjacentElement('beforebegin', row);
+        }
+
+        if (!row.contains(cityWrap)) row.appendChild(cityWrap);
+        if (!row.contains(postcodeWrap)) row.appendChild(postcodeWrap);
+      }
+
       function forceOrderNote(root) {
         var notes = root.querySelector('#order-notes');
         if (!notes) return;
@@ -297,10 +318,10 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           renameLabel(shippingForm, '.wc-block-components-address-form__address_1', 'Улица');
           hideEl(shippingForm, '.wc-block-components-address-form__country');
           hideEl(shippingForm, '.wc-block-components-address-form__state');
-          hideEl(shippingForm, '.wc-block-components-address-form__postcode');
           hideEl(shippingFields, '.wc-block-checkout__use-address-for-billing');
 
           setupHouseApartment(shippingForm);
+          setupCityPostcode(shippingForm);
         }
 
         forceOrderNote(root);

@@ -351,6 +351,12 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
     gap: 12px;
 }
 
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-city-postcode {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .wc-block-components-radio-control__option.wc-block-components-radio-control__option-checked {
     border-bottom-color: var(--e-global-color-primary) !important;
     box-shadow: inset 3px 0 0 var(--e-global-color-primary);
@@ -432,6 +438,9 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
 
 @media (max-width: 767px) {
     body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-house-apartment {
+        grid-template-columns: 1fr;
+    }
+    body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-city-postcode {
         grid-template-columns: 1fr;
     }
 }
