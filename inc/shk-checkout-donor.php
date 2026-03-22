@@ -116,6 +116,23 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
         if (!contact || !shippingFields || !shippingOptions || !payment) return false;
 
+        if (shippingOptions.previousElementSibling !== contact && shippingOptions.previousElementSibling !== null) {
+          contact.insertAdjacentElement('afterend', shippingOptions);
+        }
+
+        if (shippingFields.previousElementSibling !== shippingOptions) {
+          shippingOptions.insertAdjacentElement('afterend', shippingFields);
+        }
+
+        var orderNotes = root.querySelector('#order-notes');
+        if (orderNotes && orderNotes.previousElementSibling !== shippingFields) {
+          shippingFields.insertAdjacentElement('afterend', orderNotes);
+        }
+
+        if (payment.previousElementSibling !== (orderNotes || shippingFields)) {
+          (orderNotes || shippingFields).insertAdjacentElement('afterend', payment);
+        }
+
         if (shippingMethodSwitch) {
           shippingMethodSwitch.style.display = 'none';
         }
@@ -144,9 +161,24 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           if (firstWrap && firstInput) {
             var firstLabel = firstWrap.querySelector('label');
             if (firstLabel) firstLabel.textContent = 'Имя и Фамилия';
-            firstInput.placeholder = 'Например, Инна Иванова';
+            firstInput.placeholder = '';
             firstInput.autocomplete = 'name';
           }
+
+          if (firstWrap && !contactForm.contains(firstWrap)) {
+            contactForm.insertAdjacentElement('afterbegin', firstWrap);
+          }
+
+          if (phoneWrap && !contactForm.contains(phoneWrap)) {
+            contactForm.appendChild(phoneWrap);
+          }
+
+          if (emailWrap && contactForm.lastElementChild !== emailWrap) {
+            contactForm.appendChild(emailWrap);
+          }
+
+          renameLabel(contactForm, '.wc-block-components-address-form__phone', 'Телефон');
+          renameLabel(contactForm, '.wc-block-components-address-form__email', 'Электронная почта');
 
           if (lastWrap) {
             lastWrap.style.display = 'none';
@@ -182,6 +214,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           hideEl(shippingForm, '.wc-block-components-address-form__country');
           hideEl(shippingForm, '.wc-block-components-address-form__state');
           hideEl(shippingForm, '.wc-block-components-address-form__postcode');
+          hideEl(shippingFields, '.wc-block-checkout__use-address-for-billing');
 
           setupHouseApartment(shippingForm);
         }
