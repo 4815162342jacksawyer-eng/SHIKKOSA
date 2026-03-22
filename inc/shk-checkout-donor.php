@@ -202,148 +202,20 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         return captureCurrentRateOptions(shippingOptions);
       }
 
-      async function mountUnifiedShippingRates(root) {
-        if (!root || root.dataset.shkUnifiedRatesBusy === '1') return;
-        root.dataset.shkUnifiedRatesBusy = '1';
-
-        try {
-          var shippingMethodSwitch = root.querySelector('fieldset.wc-block-checkout__shipping-method');
-          var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
-          if (!shippingMethodSwitch || !shippingOptions) return;
-
-          var switchContainer = shippingMethodSwitch.querySelector('.wc-block-checkout__shipping-method-container');
-          var switchModes = switchContainer ? switchContainer.querySelectorAll('.wc-block-checkout__shipping-method-option') : [];
-          if (!switchContainer || !switchModes.length) return;
-
-          var content = shippingOptions.querySelector('.wc-block-components-checkout-step__content');
-          var nativeRatesWrap = shippingOptions.querySelector('.wc-block-components-shipping-rates-control');
-          if (!content || !nativeRatesWrap) return;
+      function mountUnifiedShippingRates(root) {
+        if (!root) return;
+        var shippingMethodSwitch = root.querySelector('fieldset.wc-block-checkout__shipping-method');
+        if (shippingMethodSwitch) {
+          shippingMethodSwitch.style.setProperty('display', 'none', 'important');
+        }
+        var unified = root.querySelector('.shk-unified-shipping-list');
+        if (unified) {
+          unified.style.display = 'none';
+          unified.innerHTML = '';
+        }
+        var nativeRatesWrap = root.querySelector('fieldset.wc-block-checkout__shipping-option .wc-block-components-shipping-rates-control');
+        if (nativeRatesWrap) {
           nativeRatesWrap.style.display = '';
-
-          var modeData = [];
-          var currentModeIdx = 0;
-          switchModes.forEach(function(modeEl, idx) {
-            var titleNode = modeEl.querySelector('.wc-block-checkout__shipping-method-option-title');
-            var title = titleNode ? (titleNode.textContent || '').trim() : ('mode-' + idx);
-            modeData.push({ idx: idx, title: title, el: modeEl, rates: [] });
-            if (modeEl.getAttribute('aria-checked') === 'true') currentModeIdx = idx;
-          });
-
-          for (var i = 0; i < modeData.length; i++) {
-            if (modeData[i].idx !== currentModeIdx) {
-              modeData[i].el.click();
-              await wait(450);
-            }
-            modeData[i].rates = await waitForRateOptions(shippingOptions, 1, 14);
-          }
-
-          if (modeData[currentModeIdx]) {
-            modeData[currentModeIdx].el.click();
-            await wait(200);
-          }
-
-          var activeRates = await waitForRateOptions(shippingOptions, 1, 8);
-          var currentValue = '';
-          activeRates.forEach(function(r) { if (r.checked) currentValue = r.value; });
-
-          var unified = content.querySelector('.shk-unified-shipping-list');
-          if (!unified) {
-            unified = document.createElement('div');
-            unified.className = 'shk-unified-shipping-list wc-block-components-radio-control';
-            content.insertAdjacentElement('afterbegin', unified);
-          } else {
-            unified.innerHTML = '';
-          }
-
-          var rowsAdded = 0;
-          modeData.forEach(function(mode) {
-            mode.rates.forEach(function(rate) {
-              if (!rate || !rate.value || !rate.label) return;
-              var row = document.createElement('div');
-              row.className = 'wc-block-components-radio-control__option shk-unified-shipping-option';
-              if (mode.idx === currentModeIdx && rate.value === currentValue) {
-                row.classList.add('wc-block-components-radio-control__option-checked');
-              }
-              row.setAttribute('data-shk-mode-idx', String(mode.idx));
-              row.setAttribute('data-shk-rate-value', rate.value);
-              row.setAttribute('data-shk-rate-label', rate.label);
-              row.innerHTML =
-                '<label><span class="wc-block-components-radio-control__option-layout">' +
-                '<span class="wc-block-components-radio-control__label-group">' +
-                '<span class="wc-block-components-radio-control__label"></span>' +
-                '<span class="wc-block-components-radio-control__secondary-label"></span>' +
-                '</span></span></label>' +
-                '<input type="radio" class="wc-block-components-radio-control__input" style="display:none" value="">';
-
-              var labelEl = row.querySelector('.wc-block-components-radio-control__label');
-              var secEl = row.querySelector('.wc-block-components-radio-control__secondary-label');
-              var hiddenInput = row.querySelector('.wc-block-components-radio-control__input');
-              if (labelEl) labelEl.textContent = rate.label;
-              if (secEl) secEl.textContent = rate.secondary || '';
-              if (hiddenInput) hiddenInput.value = rate.value || '';
-
-              row.addEventListener('click', function() {
-                var targetModeIdx = parseInt(row.getAttribute('data-shk-mode-idx') || '0', 10);
-                var targetValue = row.getAttribute('data-shk-rate-value') || '';
-                var targetLabel = row.getAttribute('data-shk-rate-label') || '';
-                var modeEl = switchModes[targetModeIdx];
-                if (!modeEl) return;
-                modeEl.click();
-                window.setTimeout(function() {
-                  var done = false;
-                  var liveOptions = shippingOptions.querySelectorAll('.wc-block-components-shipping-rates-control .wc-block-components-radio-control__option .wc-block-components-radio-control__input');
-                  liveOptions.forEach(function(inp) {
-                    if (String(inp.value || '') === targetValue) {
-                      var lbl = inp.closest('label');
-                      if (lbl) {
-                        lbl.click();
-                      } else {
-                        inp.click();
-                      }
-                      done = true;
-                    }
-                  });
-                  if (!done && targetLabel) {
-                    var liveRows = shippingOptions.querySelectorAll('.wc-block-components-shipping-rates-control .wc-block-components-radio-control__option');
-                    liveRows.forEach(function(liveRow) {
-                      if (done) return;
-                      var liveLabel = liveRow.querySelector('.wc-block-components-radio-control__label');
-                      var txt = liveLabel ? (liveLabel.textContent || '').trim() : '';
-                      if (txt === targetLabel) {
-                        var liveInput = liveRow.querySelector('.wc-block-components-radio-control__input');
-                        if (liveInput) {
-                          var liveLbl = liveInput.closest('label');
-                          if (liveLbl) {
-                            liveLbl.click();
-                          } else {
-                            liveInput.click();
-                          }
-                          done = true;
-                        }
-                      }
-                    });
-                  }
-                }, 250);
-              });
-
-              unified.appendChild(row);
-              rowsAdded += 1;
-            });
-          });
-
-          if (rowsAdded > 0) {
-            shippingMethodSwitch.style.display = 'none';
-            nativeRatesWrap.style.display = 'none';
-            unified.style.display = '';
-          } else {
-            shippingMethodSwitch.style.display = '';
-            nativeRatesWrap.style.display = '';
-            if (unified) {
-              unified.style.display = 'none';
-            }
-          }
-        } finally {
-          root.dataset.shkUnifiedRatesBusy = '0';
         }
       }
 

@@ -20,6 +20,7 @@ function shikkosa_sdek_settings_default() {
         'enabled'            => 'yes',
         'debug_timing'       => 'no',
         'show_all_before_address' => 'yes',
+        'custom_rates'       => array(),
         'cdek_door_door_label'   => '',
         'cdek_door_door_price'   => '',
         'cdek_door_door_price_comment' => '',
@@ -98,6 +99,7 @@ function shikkosa_sdek_settings_sanitize( $input ) {
     $out['enabled'] = ( isset( $input['enabled'] ) && 'yes' === (string) $input['enabled'] ) ? 'yes' : 'no';
     $out['debug_timing'] = ( isset( $input['debug_timing'] ) && 'yes' === (string) $input['debug_timing'] ) ? 'yes' : 'no';
     $out['show_all_before_address'] = ( isset( $input['show_all_before_address'] ) && 'yes' === (string) $input['show_all_before_address'] ) ? 'yes' : 'no';
+    $out['custom_rates'] = shikkosa_sdek_sanitize_custom_rates( isset( $input['custom_rates'] ) ? $input['custom_rates'] : array() );
 
     foreach ( array(
         'cdek_door_door_label',
@@ -228,6 +230,38 @@ function shikkosa_sdek_sanitize_variants_list( $raw_variants ) {
         );
     }
 
+    return $clean;
+}
+
+function shikkosa_sdek_sanitize_custom_rates( $raw_rates ) {
+    if ( ! is_array( $raw_rates ) ) {
+        return array();
+    }
+    $clean = array();
+    foreach ( $raw_rates as $row ) {
+        if ( ! is_array( $row ) ) {
+            continue;
+        }
+        $enabled = ( isset( $row['enabled'] ) && 'yes' === (string) $row['enabled'] ) ? 'yes' : 'no';
+        $label = isset( $row['label'] ) && is_scalar( $row['label'] ) ? sanitize_text_field( (string) $row['label'] ) : '';
+        $price = isset( $row['price'] ) && is_scalar( $row['price'] ) ? trim( (string) $row['price'] ) : '';
+        $price_comment = isset( $row['price_comment'] ) && is_scalar( $row['price_comment'] ) ? sanitize_text_field( (string) $row['price_comment'] ) : '';
+        $delivery_comment = isset( $row['delivery_comment'] ) && is_scalar( $row['delivery_comment'] ) ? sanitize_text_field( (string) $row['delivery_comment'] ) : '';
+
+        if ( '' !== $price ) {
+            $price = (string) wc_format_decimal( $price );
+        }
+        if ( '' === $label && '' === $price && '' === $price_comment && '' === $delivery_comment ) {
+            continue;
+        }
+        $clean[] = array(
+            'enabled' => $enabled,
+            'label' => $label,
+            'price' => $price,
+            'price_comment' => $price_comment,
+            'delivery_comment' => $delivery_comment,
+        );
+    }
     return $clean;
 }
 
@@ -452,6 +486,39 @@ function shikkosa_sdek_synthetic_rate( $rate_id, $label, $cost ) {
     );
 }
 
+function shikkosa_sdek_append_custom_rates( $rates, $settings ) {
+    $rates = is_array( $rates ) ? $rates : array();
+    $custom_rates = isset( $settings['custom_rates'] ) && is_array( $settings['custom_rates'] ) ? $settings['custom_rates'] : array();
+    $custom_rates = shikkosa_sdek_sanitize_custom_rates( $custom_rates );
+
+    foreach ( $custom_rates as $idx => $row ) {
+        if ( 'yes' !== (string) ( $row['enabled'] ?? 'yes' ) ) {
+            continue;
+        }
+        $label = trim( (string) ( $row['label'] ?? '' ) );
+        if ( '' === $label ) {
+            continue;
+        }
+        $price_raw = trim( (string) ( $row['price'] ?? '' ) );
+        $cost = ( '' !== $price_raw && is_numeric( $price_raw ) ) ? max( 0.0, (float) $price_raw ) : 0.0;
+
+        $id = 'shk_custom_' . ( (int) $idx + 1 );
+        $rate = shikkosa_sdek_synthetic_rate( $id, $label, $cost );
+
+        $price_comment = trim( (string) ( $row['price_comment'] ?? '' ) );
+        $delivery_comment = trim( (string) ( $row['delivery_comment'] ?? '' ) );
+        if ( '' !== $price_comment ) {
+            $rate->add_meta_data( '_shk_price_comment', $price_comment, true );
+        }
+        if ( '' !== $delivery_comment ) {
+            $rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
+        }
+        $rates[ $id ] = $rate;
+    }
+
+    return $rates;
+}
+
 function shikkosa_sdek_build_prerates_without_address( $rates, $settings ) {
     $title_map = shikkosa_sdek_profile_titles();
     $active_profiles = shikkosa_sdek_detect_active_general_profiles();
@@ -572,6 +639,7 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
 
     if ( $show_all_before_address && ! $has_address ) {
         $pre_rates = shikkosa_sdek_build_prerates_without_address( $rates, $settings );
+        $pre_rates = shikkosa_sdek_append_custom_rates( $pre_rates, $settings );
         if ( ! empty( $pre_rates ) ) {
             if ( 'yes' === (string) $settings['debug_timing'] ) {
                 $logger = wc_get_logger();
@@ -644,6 +712,8 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
             $new_rates[ $new_id ] = $new_rate;
         }
     }
+
+    $new_rates = shikkosa_sdek_append_custom_rates( $new_rates, $settings );
 
     if ( 'yes' === (string) $settings['debug_timing'] ) {
         $logger = wc_get_logger();
@@ -1365,6 +1435,84 @@ function shikkosa_sdek_render_wc_shipping_manager() {
         })();
         </script>
     <?php endif; ?>
+
+    <?php $custom_rates = shikkosa_sdek_sanitize_custom_rates( isset( $opt['custom_rates'] ) ? $opt['custom_rates'] : array() ); ?>
+    <h3>Кастомные пункты доставки</h3>
+    <p class="description">Эти пункты добавляются в общий список доставки на checkout.</p>
+    <table class="shk-sdek-inline-table" role="presentation">
+        <thead>
+            <tr>
+                <th style="width:8%">Вкл</th>
+                <th style="width:26%">Название</th>
+                <th style="width:12%">Стоимость</th>
+                <th style="width:24%">Комментарий к цене</th>
+                <th style="width:24%">Комментарий по сроку</th>
+                <th style="width:6%"></th>
+            </tr>
+        </thead>
+        <tbody id="shk-custom-rates-body">
+            <?php foreach ( $custom_rates as $i => $row ) : ?>
+                <tr class="shk-custom-rate-row">
+                    <td style="text-align:center"><input type="checkbox" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][enabled]" value="yes" <?php checked( isset( $row['enabled'] ) ? $row['enabled'] : 'yes', 'yes' ); ?> /></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][label]" value="<?php echo esc_attr( $row['label'] ?? '' ); ?>" /></td>
+                    <td><input type="number" step="0.01" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][price]" value="<?php echo esc_attr( $row['price'] ?? '' ); ?>" /></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][price_comment]" value="<?php echo esc_attr( $row['price_comment'] ?? '' ); ?>" /></td>
+                    <td><input type="text" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][delivery_comment]" value="<?php echo esc_attr( $row['delivery_comment'] ?? '' ); ?>" /></td>
+                    <td><button type="button" class="button-link-delete shk-custom-rate-del">Удалить</button></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+    <p><button type="button" class="button" id="shk-custom-rate-add">+ Добавить пункт</button></p>
+    <script>
+    (function() {
+      var body = document.getElementById('shk-custom-rates-body');
+      var add = document.getElementById('shk-custom-rate-add');
+      if (!body || !add) return;
+
+      function renumber() {
+        var rows = body.querySelectorAll('.shk-custom-rate-row');
+        rows.forEach(function(row, idx) {
+          row.querySelectorAll('input[name]').forEach(function(inp) {
+            var name = inp.getAttribute('name') || '';
+            name = name.replace(/shikkosa_sdek_settings\[custom_rates\]\[\d+\]/, 'shikkosa_sdek_settings[custom_rates][' + idx + ']');
+            inp.setAttribute('name', name);
+          });
+        });
+      }
+
+      function rowHtml(idx) {
+        return '' +
+          '<tr class="shk-custom-rate-row">' +
+          '<td style="text-align:center"><input type="checkbox" name="shikkosa_sdek_settings[custom_rates][' + idx + '][enabled]" value="yes" checked></td>' +
+          '<td><input type="text" name="shikkosa_sdek_settings[custom_rates][' + idx + '][label]" value=""></td>' +
+          '<td><input type="number" step="0.01" name="shikkosa_sdek_settings[custom_rates][' + idx + '][price]" value=""></td>' +
+          '<td><input type="text" name="shikkosa_sdek_settings[custom_rates][' + idx + '][price_comment]" value=""></td>' +
+          '<td><input type="text" name="shikkosa_sdek_settings[custom_rates][' + idx + '][delivery_comment]" value=""></td>' +
+          '<td><button type="button" class="button-link-delete shk-custom-rate-del">Удалить</button></td>' +
+          '</tr>';
+      }
+
+      add.addEventListener('click', function() {
+        var idx = body.querySelectorAll('.shk-custom-rate-row').length;
+        var wrap = document.createElement('tbody');
+        wrap.innerHTML = rowHtml(idx);
+        var row = wrap.firstElementChild;
+        if (row) body.appendChild(row);
+        renumber();
+      });
+
+      body.addEventListener('click', function(e) {
+        var del = e.target.closest('.shk-custom-rate-del');
+        if (!del) return;
+        var row = del.closest('.shk-custom-rate-row');
+        if (!row) return;
+        row.remove();
+        renumber();
+      });
+    })();
+    </script>
+
     <p class="description">Нажмите «+», чтобы добавить один или несколько доп. вариантов для конкретного типа. Пустая стоимость доп. варианта = цена основного варианта.</p>
     <?php
 }
@@ -1589,6 +1737,14 @@ function shikkosa_sdek_checkout_notes_blocks() {
             );
         }
     }
+    $custom_rates = shikkosa_sdek_sanitize_custom_rates( isset( $opt['custom_rates'] ) ? $opt['custom_rates'] : array() );
+    foreach ( $custom_rates as $idx => $row ) {
+        $n = (int) $idx + 1;
+        $notes[ 'custom_' . $n ] = array(
+            'price'    => isset( $row['price_comment'] ) ? (string) $row['price_comment'] : '',
+            'delivery' => isset( $row['delivery_comment'] ) ? (string) $row['delivery_comment'] : '',
+        );
+    }
     ?>
     <script>
     (function () {
@@ -1596,6 +1752,8 @@ function shikkosa_sdek_checkout_notes_blocks() {
 
       function detectCode(inputValue, inputId) {
         var hay = (String(inputValue || '') + ' ' + String(inputId || '')).toLowerCase();
+        var custom = hay.match(/shk_custom_(\d+)/);
+        if (custom && custom[1]) return 'custom_' + custom[1];
         var byId = hay.match(/__shk_variant_(cdek_express_door_door|cdek_door_warehouse|cdek_pickup|cdek_door_door)_(\d+)/);
         if (byId && byId[1] && byId[2]) return byId[1] + '_variant_' + byId[2];
         if (hay.indexOf('__shk_variant_cdek_express_door_door') !== -1) return 'cdek_express_door_door_variant_1';
