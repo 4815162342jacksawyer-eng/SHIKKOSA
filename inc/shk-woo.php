@@ -2198,6 +2198,11 @@ function shikkosa_product_attributes_inline() {
                         $out .= '<button type="button" class="color-swatch shk-attr-option" data-attribute-name="' . esc_attr( $attribute_name ) . '" data-value="' . esc_attr( $option ) . '"><span class="shk-color-dot" style="background:#d9d9d9;"></span><span class="shk-color-name">' . esc_html( $display_value ) . '</span></button>';
                     }
                 } else {
+                    // Hide out-of-stock size options completely: client expects
+                    // size with qty=0 not to be shown on storefront.
+                    if ( $is_size_attr && ! $is_option_in_stock ) {
+                        continue;
+                    }
                     $out .= '<button type="button" class="size-swatch shk-attr-option" data-attribute-name="' . esc_attr( $attribute_name ) . '" data-value="' . esc_attr( $option ) . '">' . esc_html( $display_value ) . '</button>';
                 }
             }
