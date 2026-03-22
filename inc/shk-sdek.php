@@ -27,11 +27,36 @@ function shikkosa_sdek_settings_default() {
 
 function shikkosa_sdek_settings() {
     $defaults = shikkosa_sdek_settings_default();
-    $saved = get_option( 'shikkosa_sdek_settings', array() );
-    if ( ! is_array( $saved ) ) {
-        $saved = array();
+    $saved_raw = get_option( 'shikkosa_sdek_settings', null );
+
+    if ( null === $saved_raw ) {
+        return $defaults;
     }
-    return wp_parse_args( $saved, $defaults );
+
+    $saved = is_array( $saved_raw ) ? $saved_raw : array();
+    $merged = wp_parse_args( $saved, $defaults );
+
+    // Checkbox key is absent when unchecked -> treat as explicit "no".
+    if ( ! array_key_exists( 'enabled', $saved ) ) {
+        $merged['enabled'] = 'no';
+    }
+
+    return $merged;
+}
+
+function shikkosa_sdek_settings_sanitize( $input ) {
+    $defaults = shikkosa_sdek_settings_default();
+    $input = is_array( $input ) ? $input : array();
+
+    $out = wp_parse_args( $input, $defaults );
+    $out['enabled'] = ( isset( $input['enabled'] ) && 'yes' === (string) $input['enabled'] ) ? 'yes' : 'no';
+
+    foreach ( array( 'msk_no_fit_extra', 'msk_fit_extra', 'rf_no_fit_extra', 'rf_fit_extra' ) as $key ) {
+        $value = isset( $input[ $key ] ) ? $input[ $key ] : $defaults[ $key ];
+        $out[ $key ] = is_scalar( $value ) ? (string) wc_format_decimal( (string) $value ) : (string) $defaults[ $key ];
+    }
+
+    return $out;
 }
 
 function shikkosa_sdek_rate_string( $rate ) {
@@ -239,7 +264,13 @@ function shikkosa_sdek_settings_menu() {
 
 add_action( 'admin_init', 'shikkosa_sdek_settings_register' );
 function shikkosa_sdek_settings_register() {
-    register_setting( 'shikkosa_sdek_settings_group', 'shikkosa_sdek_settings' );
+    register_setting(
+        'shikkosa_sdek_settings_group',
+        'shikkosa_sdek_settings',
+        array(
+            'sanitize_callback' => 'shikkosa_sdek_settings_sanitize',
+        )
+    );
 }
 
 function shikkosa_sdek_settings_page() {
