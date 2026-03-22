@@ -604,10 +604,10 @@ function shikkosa_sdek_profile_from_tariff_id( $tariff_id ) {
 
     // Common CDEK tariff ids grouped by last-mile type used in checkout.
     // Express door-door ids are separated so they can be tuned independently.
-    $express_door_door = array( 7, 8, 121, 122, 293 );
-    $door_warehouse    = array( 123, 138, 187, 232 );
-    $pickup_like       = array( 62, 136, 185, 234, 291 );
-    $door_door_like    = array( 137, 139, 184, 186, 231, 233 );
+    $express_door_door = array( 7, 8, 121, 122, 293, 480 );
+    $door_warehouse    = array( 123, 138, 187, 232, 295, 481, 749 );
+    $pickup_like       = array( 62, 136, 185, 234, 291, 366, 368, 376, 378, 483, 485, 486, 497, 498, 751 );
+    $door_door_like    = array( 137, 139, 184, 186, 231, 233, 294, 482, 748, 750 );
 
     if ( in_array( $id, $express_door_door, true ) ) {
         return 'cdek_express_door_door';
@@ -623,6 +623,39 @@ function shikkosa_sdek_profile_from_tariff_id( $tariff_id ) {
     }
 
     return '';
+}
+
+function shikkosa_sdek_extract_tariff_ids_from_value( $value ) {
+    $ids = array();
+
+    if ( is_array( $value ) ) {
+        foreach ( $value as $item ) {
+            foreach ( shikkosa_sdek_extract_tariff_ids_from_value( $item ) as $id ) {
+                $ids[ $id ] = true;
+            }
+        }
+        return array_keys( $ids );
+    }
+
+    if ( ! is_scalar( $value ) ) {
+        return array();
+    }
+
+    $text = trim( (string) $value );
+    if ( '' === $text ) {
+        return array();
+    }
+
+    if ( preg_match_all( '/\b\d{1,4}\b/u', $text, $m ) ) {
+        foreach ( $m[0] as $num ) {
+            $id = (int) $num;
+            if ( $id > 0 ) {
+                $ids[ $id ] = true;
+            }
+        }
+    }
+
+    return array_keys( $ids );
 }
 
 function shikkosa_sdek_collect_profiles_from_tariff_ids_text( $text ) {
@@ -643,6 +676,44 @@ function shikkosa_sdek_collect_profiles_from_tariff_ids_text( $text ) {
             $profiles[ $profile ] = true;
         }
     }
+    return array_keys( $profiles );
+}
+
+function shikkosa_sdek_detect_profiles_from_tariff_ids( $ids ) {
+    $profiles = array();
+    foreach ( shikkosa_sdek_extract_tariff_ids_from_value( $ids ) as $id ) {
+        $profile = shikkosa_sdek_profile_from_tariff_id( $id );
+        if ( '' !== $profile ) {
+            $profiles[ $profile ] = true;
+        }
+    }
+    return array_keys( $profiles );
+}
+
+function shikkosa_sdek_detect_profiles_from_global_options() {
+    $profiles = array();
+
+    $direct_list = get_option( 'woocommerce_official_cdek_tariff_list', array() );
+    foreach ( shikkosa_sdek_detect_profiles_from_tariff_ids( $direct_list ) as $p ) {
+        $profiles[ $p ] = true;
+    }
+
+    $settings = get_option( 'woocommerce_official_cdek_settings', array() );
+    if ( is_array( $settings ) ) {
+        $keys = array(
+            'tariff_list',
+            'official_cdek_tariff_list',
+            'tariffs',
+        );
+        foreach ( $keys as $k ) {
+            if ( isset( $settings[ $k ] ) ) {
+                foreach ( shikkosa_sdek_detect_profiles_from_tariff_ids( $settings[ $k ] ) as $p ) {
+                    $profiles[ $p ] = true;
+                }
+            }
+        }
+    }
+
     return array_keys( $profiles );
 }
 
@@ -776,6 +847,12 @@ function shikkosa_sdek_detect_active_general_profiles() {
             if ( '' !== $code ) {
                 $profiles[ $code ] = true;
             }
+        }
+    }
+
+    foreach ( shikkosa_sdek_detect_profiles_from_global_options() as $code ) {
+        if ( '' !== $code ) {
+            $profiles[ $code ] = true;
         }
     }
 
