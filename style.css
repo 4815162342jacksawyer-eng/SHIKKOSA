@@ -215,7 +215,7 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 2px solid var(--e-global-color-primary) !important;
+    border: 2px solid #a9a9a9 !important;
     background: #fff;
     box-shadow: none !important;
     cursor: pointer;
@@ -223,15 +223,13 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-radio-control__input:checked::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--e-global-color-primary);
-    transform: translate(-50%, -50%);
+    content: none;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-radio-control__input:checked {
+    border-color: var(--e-global-color-primary) !important;
+    background: #fff !important;
+    box-shadow: inset 0 0 0 4px #fff !important;
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout fieldset.wc-block-checkout__shipping-option .wc-block-components-radio-control__option {
@@ -358,7 +356,7 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
     appearance: none !important;
     -webkit-appearance: none !important;
     border-radius: 50%;
-    border: 2px solid var(--e-global-color-primary) !important;
+    border: 2px solid #a9a9a9 !important;
     background: #fff;
     box-shadow: none !important;
     cursor: pointer;
@@ -366,15 +364,13 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-privacy-consent .custom-control-input:checked::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--e-global-color-primary);
-    transform: translate(-50%, -50%);
+    content: none;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-privacy-consent .custom-control-input:checked {
+    border-color: var(--e-global-color-primary) !important;
+    background: #fff !important;
+    box-shadow: inset 0 0 0 4px #fff !important;
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-privacy-consent .custom-control-label {
