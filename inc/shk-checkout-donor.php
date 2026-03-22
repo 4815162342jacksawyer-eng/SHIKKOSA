@@ -192,7 +192,6 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           var shippingMethodSwitch = root.querySelector('fieldset.wc-block-checkout__shipping-method');
           var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
           if (!shippingMethodSwitch || !shippingOptions) return;
-          shippingMethodSwitch.style.display = 'none';
 
           var switchContainer = shippingMethodSwitch.querySelector('.wc-block-checkout__shipping-method-container');
           var switchModes = switchContainer ? switchContainer.querySelectorAll('.wc-block-checkout__shipping-method-option') : [];
@@ -201,6 +200,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           var content = shippingOptions.querySelector('.wc-block-components-checkout-step__content');
           var nativeRatesWrap = shippingOptions.querySelector('.wc-block-components-shipping-rates-control');
           if (!content || !nativeRatesWrap) return;
+          nativeRatesWrap.style.display = '';
 
           var modeData = [];
           var currentModeIdx = 0;
@@ -237,6 +237,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             unified.innerHTML = '';
           }
 
+          var rowsAdded = 0;
           modeData.forEach(function(mode) {
             mode.rates.forEach(function(rate) {
               if (!rate || !rate.value || !rate.label) return;
@@ -308,11 +309,21 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
               });
 
               unified.appendChild(row);
+              rowsAdded += 1;
             });
           });
 
-          shippingMethodSwitch.style.display = 'none';
-          nativeRatesWrap.style.display = 'none';
+          if (rowsAdded > 0) {
+            shippingMethodSwitch.style.display = 'none';
+            nativeRatesWrap.style.display = 'none';
+            unified.style.display = '';
+          } else {
+            shippingMethodSwitch.style.display = '';
+            nativeRatesWrap.style.display = '';
+            if (unified) {
+              unified.style.display = 'none';
+            }
+          }
         } finally {
           root.dataset.shkUnifiedRatesBusy = '0';
         }
