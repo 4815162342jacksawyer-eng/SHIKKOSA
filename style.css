@@ -3551,16 +3551,20 @@ body.tax-product_tag .e-loop-item .swiper-slide {
 }
 
 /* Loop template 4016 price roles:
-   title (upper line) = original/old price,
-   description (lower line) = sale/current price. */
+   title (upper line) = sale/current price,
+   description (lower line) = original/old price. */
 .elementor-4016 .elementor-element.elementor-element-848c657 .elementor-image-box-title {
-  text-decoration: line-through !important;
-  color: #8d8d8d !important;
+  text-decoration: none !important;
+  color: var(--e-global-color-text) !important;
+  font-size: 20px !important;
+  line-height: 1.2 !important;
 }
 
 .elementor-4016 .elementor-element.elementor-element-848c657 .elementor-image-box-description {
-  text-decoration: none !important;
-  color: var(--e-global-color-text) !important;
+  text-decoration: line-through !important;
+  color: #8d8d8d !important;
+  font-size: 16px !important;
+  line-height: 1.2 !important;
 }
 
 .shk-product-tag {
