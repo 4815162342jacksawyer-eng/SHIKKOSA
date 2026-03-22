@@ -554,6 +554,102 @@ function shikkosa_sdek_profile_titles() {
     );
 }
 
+function shikkosa_sdek_is_truthy_value( $value ) {
+    if ( is_bool( $value ) ) {
+        return $value;
+    }
+    if ( is_numeric( $value ) ) {
+        return (float) $value > 0;
+    }
+    if ( ! is_scalar( $value ) ) {
+        return false;
+    }
+    $v = strtolower( trim( (string) $value ) );
+    return in_array( $v, array( '1', 'yes', 'true', 'on', 'enabled' ), true );
+}
+
+function shikkosa_sdek_detect_profile_from_text( $text ) {
+    $text = is_scalar( $text ) ? (string) $text : '';
+    $text = function_exists( 'mb_strtolower' ) ? mb_strtolower( $text ) : strtolower( $text );
+    if ( '' === $text ) {
+        return '';
+    }
+
+    $is_express = ( false !== strpos( $text, 'экспресс' ) || false !== strpos( $text, 'express' ) );
+    $has_door   = ( false !== strpos( $text, 'двер' ) || false !== strpos( $text, 'door' ) || false !== strpos( $text, 'courier' ) || false !== strpos( $text, 'курьер' ) );
+    $has_sklad  = ( false !== strpos( $text, 'склад' ) || false !== strpos( $text, 'warehouse' ) );
+    $has_pickup = ( false !== strpos( $text, 'пвз' ) || false !== strpos( $text, 'пункт' ) || false !== strpos( $text, 'pickup' ) || false !== strpos( $text, 'самовывоз' ) || false !== strpos( $text, 'office' ) );
+
+    if ( $is_express && $has_door ) {
+        return 'cdek_express_door_door';
+    }
+    if ( $has_door && $has_sklad ) {
+        return 'cdek_door_warehouse';
+    }
+    if ( $has_pickup ) {
+        return 'cdek_pickup';
+    }
+    if ( $has_door ) {
+        return 'cdek_door_door';
+    }
+
+    return '';
+}
+
+function shikkosa_sdek_detect_profiles_from_method_settings( $method ) {
+    $profiles = array();
+    if ( ! $method || ! is_object( $method ) ) {
+        return $profiles;
+    }
+
+    $settings = array();
+    if ( isset( $method->instance_settings ) && is_array( $method->instance_settings ) ) {
+        $settings = $method->instance_settings;
+    } elseif ( method_exists( $method, 'get_instance_settings' ) ) {
+        $tmp = $method->get_instance_settings();
+        if ( is_array( $tmp ) ) {
+            $settings = $tmp;
+        }
+    }
+    if ( empty( $settings ) ) {
+        return $profiles;
+    }
+
+    foreach ( $settings as $key => $value ) {
+        $key_lc = function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $key ) : strtolower( (string) $key );
+
+        if ( is_array( $value ) ) {
+            foreach ( $value as $item ) {
+                $profile = shikkosa_sdek_detect_profile_from_text( $key_lc . ' ' . ( is_scalar( $item ) ? (string) $item : '' ) );
+                if ( '' !== $profile ) {
+                    $profiles[ $profile ] = true;
+                }
+            }
+            continue;
+        }
+
+        if ( ! is_scalar( $value ) ) {
+            continue;
+        }
+        $value_lc = function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $value ) : strtolower( (string) $value );
+
+        $by_value = shikkosa_sdek_detect_profile_from_text( $value_lc );
+        if ( '' !== $by_value ) {
+            $profiles[ $by_value ] = true;
+        }
+
+        // Many plugins store selected profiles in boolean-like toggles per key.
+        if ( shikkosa_sdek_is_truthy_value( $value ) ) {
+            $by_key = shikkosa_sdek_detect_profile_from_text( $key_lc );
+            if ( '' !== $by_key ) {
+                $profiles[ $by_key ] = true;
+            }
+        }
+    }
+
+    return array_keys( $profiles );
+}
+
 function shikkosa_sdek_detect_active_general_profiles() {
     $profiles = array();
 
@@ -587,6 +683,16 @@ function shikkosa_sdek_detect_active_general_profiles() {
                 continue;
             }
 
+            $detected_from_settings = shikkosa_sdek_detect_profiles_from_method_settings( $method );
+            foreach ( $detected_from_settings as $code ) {
+                if ( '' !== $code ) {
+                    $profiles[ $code ] = true;
+                }
+            }
+            if ( ! empty( $detected_from_settings ) ) {
+                continue;
+            }
+
             $pieces = array(
                 isset( $method->id ) ? (string) $method->id : '',
                 isset( $method->method_title ) ? (string) $method->method_title : '',
@@ -605,7 +711,7 @@ function shikkosa_sdek_detect_active_general_profiles() {
                 continue;
             }
 
-            $code = shikkosa_sdek_profile_code_from_string( $hay_lc );
+            $code = shikkosa_sdek_detect_profile_from_text( $hay_lc );
             if ( '' !== $code ) {
                 $profiles[ $code ] = true;
             }
