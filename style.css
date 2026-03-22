@@ -219,6 +219,34 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
         font-size: 28px !important;
     }
 }
+
+/* Donor checkout structure tweaks (applied when JS sets class) */
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .wc-block-components-checkout-step__title {
+    font-size: 36px !important;
+    line-height: 1.06;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .wc-block-components-address-form {
+    display: grid;
+    gap: 12px;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-house-apartment {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .wc-block-components-radio-control__option.wc-block-components-radio-control__option-checked {
+    border-bottom-color: var(--e-global-color-primary) !important;
+    box-shadow: inset 3px 0 0 var(--e-global-color-primary);
+}
+
+@media (max-width: 767px) {
+    body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-house-apartment {
+        grid-template-columns: 1fr;
+    }
+}
 /*Cart*/
 .widget_shopping_cart_content{
     padding-top: 80px;

@@ -44,6 +44,7 @@ $plra_child_module_files = [
     '/inc/shk-size-modal.php',
     '/inc/shk-catalog-filters.php',
     '/inc/shk-sdek.php',
+    '/inc/shk-checkout-donor.php',
     '/inc/shk-elementor-hero-video.php',
     '/inc/shk-parser-admin.php',
     '/inc/shk-parser-woo-sync.php',
