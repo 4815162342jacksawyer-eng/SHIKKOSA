@@ -286,7 +286,13 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           (orderNotes || shippingFields).insertAdjacentElement('afterend', payment);
         }
 
-        if (shippingMethodSwitch) {
+        if (shippingMethodSwitch && shippingOptions) {
+          var switchContainer = shippingMethodSwitch.querySelector('.wc-block-checkout__shipping-method-container');
+          var shippingOptionsContent = shippingOptions.querySelector('.wc-block-components-checkout-step__content');
+          if (switchContainer && shippingOptionsContent && !shippingOptionsContent.contains(switchContainer)) {
+            switchContainer.classList.add('shk-shipping-method-inline');
+            shippingOptionsContent.insertAdjacentElement('afterbegin', switchContainer);
+          }
           shippingMethodSwitch.style.display = 'none';
         }
 
