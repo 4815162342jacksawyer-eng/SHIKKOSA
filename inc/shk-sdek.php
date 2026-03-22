@@ -596,6 +596,56 @@ function shikkosa_sdek_detect_profile_from_text( $text ) {
     return '';
 }
 
+function shikkosa_sdek_profile_from_tariff_id( $tariff_id ) {
+    $id = (int) $tariff_id;
+    if ( $id <= 0 ) {
+        return '';
+    }
+
+    // Common CDEK tariff ids grouped by last-mile type used in checkout.
+    // Express door-door ids are separated so they can be tuned independently.
+    $express_door_door = array( 7, 8, 121, 122, 293 );
+    $door_warehouse    = array( 123, 138, 187, 232 );
+    $pickup_like       = array( 62, 136, 185, 234, 291 );
+    $door_door_like    = array( 137, 139, 184, 186, 231, 233 );
+
+    if ( in_array( $id, $express_door_door, true ) ) {
+        return 'cdek_express_door_door';
+    }
+    if ( in_array( $id, $door_warehouse, true ) ) {
+        return 'cdek_door_warehouse';
+    }
+    if ( in_array( $id, $pickup_like, true ) ) {
+        return 'cdek_pickup';
+    }
+    if ( in_array( $id, $door_door_like, true ) ) {
+        return 'cdek_door_door';
+    }
+
+    return '';
+}
+
+function shikkosa_sdek_collect_profiles_from_tariff_ids_text( $text ) {
+    $profiles = array();
+    if ( ! is_scalar( $text ) ) {
+        return $profiles;
+    }
+    $raw = (string) $text;
+    if ( '' === trim( $raw ) ) {
+        return $profiles;
+    }
+    if ( ! preg_match_all( '/\b\d{1,4}\b/u', $raw, $m ) ) {
+        return $profiles;
+    }
+    foreach ( $m[0] as $num ) {
+        $profile = shikkosa_sdek_profile_from_tariff_id( (int) $num );
+        if ( '' !== $profile ) {
+            $profiles[ $profile ] = true;
+        }
+    }
+    return array_keys( $profiles );
+}
+
 function shikkosa_sdek_detect_profiles_from_method_settings( $method ) {
     $profiles = array();
     if ( ! $method || ! is_object( $method ) ) {
@@ -624,6 +674,11 @@ function shikkosa_sdek_detect_profiles_from_method_settings( $method ) {
                 if ( '' !== $profile ) {
                     $profiles[ $profile ] = true;
                 }
+                if ( is_scalar( $item ) ) {
+                    foreach ( shikkosa_sdek_collect_profiles_from_tariff_ids_text( (string) $item ) as $p ) {
+                        $profiles[ $p ] = true;
+                    }
+                }
             }
             continue;
         }
@@ -637,12 +692,18 @@ function shikkosa_sdek_detect_profiles_from_method_settings( $method ) {
         if ( '' !== $by_value ) {
             $profiles[ $by_value ] = true;
         }
+        foreach ( shikkosa_sdek_collect_profiles_from_tariff_ids_text( $value_lc ) as $p ) {
+            $profiles[ $p ] = true;
+        }
 
         // Many plugins store selected profiles in boolean-like toggles per key.
         if ( shikkosa_sdek_is_truthy_value( $value ) ) {
             $by_key = shikkosa_sdek_detect_profile_from_text( $key_lc );
             if ( '' !== $by_key ) {
                 $profiles[ $by_key ] = true;
+            }
+            foreach ( shikkosa_sdek_collect_profiles_from_tariff_ids_text( $key_lc ) as $p ) {
+                $profiles[ $p ] = true;
             }
         }
     }
