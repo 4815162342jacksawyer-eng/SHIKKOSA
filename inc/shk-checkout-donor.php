@@ -303,7 +303,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
                           done = true;
                         }
                       }
-                    }
+                    });
                   }
                 }, 250);
               });
