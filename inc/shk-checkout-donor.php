@@ -142,6 +142,19 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         return list;
       }
 
+      async function waitForRateOptions(shippingOptions, minCount, tries) {
+        var need = minCount || 1;
+        var maxTry = tries || 10;
+        for (var i = 0; i < maxTry; i++) {
+          var current = captureCurrentRateOptions(shippingOptions);
+          if (current.length >= need) {
+            return current;
+          }
+          await wait(180);
+        }
+        return captureCurrentRateOptions(shippingOptions);
+      }
+
       async function mountUnifiedShippingRates(root) {
         if (!root || root.dataset.shkUnifiedRatesBusy === '1') return;
         root.dataset.shkUnifiedRatesBusy = '1';
@@ -171,9 +184,9 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           for (var i = 0; i < modeData.length; i++) {
             if (modeData[i].idx !== currentModeIdx) {
               modeData[i].el.click();
-              await wait(350);
+              await wait(450);
             }
-            modeData[i].rates = captureCurrentRateOptions(shippingOptions);
+            modeData[i].rates = await waitForRateOptions(shippingOptions, 1, 14);
           }
 
           if (modeData[currentModeIdx]) {
@@ -181,7 +194,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             await wait(200);
           }
 
-          var activeRates = captureCurrentRateOptions(shippingOptions);
+          var activeRates = await waitForRateOptions(shippingOptions, 1, 8);
           var currentValue = '';
           activeRates.forEach(function(r) { if (r.checked) currentValue = r.value; });
 
@@ -261,6 +274,14 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
         if (addNote) {
           addNote.style.display = 'none';
+        }
+      }
+
+      function hideTermsNotice(root) {
+        if (!root) return;
+        var terms = root.querySelector('.wc-block-checkout__terms');
+        if (terms) {
+          terms.style.display = 'none';
         }
       }
 
@@ -502,6 +523,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
 
         forceOrderNote(root);
+        hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
         movePlaceOrderButtonIntoSummary(root);
@@ -527,6 +549,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       document.addEventListener('change', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         mountUnifiedShippingRates(root);
+        hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
         movePlaceOrderButtonIntoSummary(root);
@@ -536,6 +559,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       document.addEventListener('wc-blocks_checkout_update', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
         mountUnifiedShippingRates(root);
+        hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
         movePlaceOrderButtonIntoSummary(root);

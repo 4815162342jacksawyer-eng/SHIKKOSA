@@ -59,6 +59,7 @@ function shikkosa_sdek_settings_default() {
     );
 
     foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile ) {
+        $defaults[ $profile . '_visible' ] = 'yes';
         $defaults[ $profile . '_variant_enabled' ] = 'no';
         $defaults[ $profile . '_variant_label' ] = '';
         $defaults[ $profile . '_variant_price' ] = '';
@@ -114,6 +115,9 @@ function shikkosa_sdek_settings_sanitize( $input ) {
     }
 
     foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile ) {
+        $visible_key = $profile . '_visible';
+        $out[ $visible_key ] = ( isset( $input[ $visible_key ] ) && 'yes' === (string) $input[ $visible_key ] ) ? 'yes' : 'no';
+
         $enabled_key = $profile . '_variant_enabled';
         $out[ $enabled_key ] = ( isset( $input[ $enabled_key ] ) && 'yes' === (string) $input[ $enabled_key ] ) ? 'yes' : 'no';
 
@@ -247,6 +251,10 @@ function shikkosa_sdek_get_profile_variants( $settings, $profile ) {
     }
 
     return array_values( $list );
+}
+
+function shikkosa_sdek_is_profile_visible( $settings, $profile ) {
+    return 'no' !== (string) ( $settings[ $profile . '_visible' ] ?? 'yes' );
 }
 
 function shikkosa_sdek_profile_code_from_string( $s ) {
@@ -478,6 +486,9 @@ function shikkosa_sdek_build_prerates_without_address( $rates, $settings ) {
         if ( ! isset( $title_map[ $profile ] ) ) {
             continue;
         }
+        if ( ! shikkosa_sdek_is_profile_visible( $settings, $profile ) ) {
+            continue;
+        }
 
         $source = isset( $source_by_profile[ $profile ] ) ? $source_by_profile[ $profile ] : $first_cdek_source;
         $base_label = '';
@@ -588,6 +599,9 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
         }
 
         $profile = shikkosa_sdek_rate_profile_code( $rate );
+        if ( '' !== $profile && ! shikkosa_sdek_is_profile_visible( $settings, $profile ) ) {
+            continue;
+        }
 
         $base_rate = shikkosa_sdek_apply_profile_overrides( $rate, $settings, $profile );
         $new_rates[ $rate_id ] = $base_rate;
@@ -695,7 +709,7 @@ function shikkosa_sdek_add_shipping_section( $sections ) {
     if ( ! is_array( $sections ) ) {
         $sections = array();
     }
-    $sections['shk_sdek'] = 'SHK СДЭК';
+    $sections['shk_sdek'] = 'SHK Доставка';
     return $sections;
 }
 
@@ -707,10 +721,10 @@ function shikkosa_sdek_get_shipping_settings_section( $settings, $current_sectio
 
     return array(
         array(
-            'name' => 'SHK СДЭК',
+            'name' => 'SHK Доставка',
             'type' => 'title',
             'id'   => 'shikkosa_sdek_wc_section',
-            'desc' => 'Редактирование названий, стоимости и комментариев для активных вариантов СДЭК.',
+            'desc' => 'Редактирование названий, стоимости, комментариев и видимости вариантов доставки.',
         ),
         array(
             'type' => 'shk_sdek_manager',
@@ -876,7 +890,9 @@ function shikkosa_sdek_collect_profiles_from_tariff_ids_text( $text ) {
             $profiles[ $profile ] = true;
         }
     }
-    return array_keys( $profiles );
+    $codes = array_keys( $profiles );
+    $codes = apply_filters( 'shikkosa_sdek_active_profiles', $codes, $profiles );
+    return array_values( array_filter( array_unique( is_array( $codes ) ? $codes : array() ) ) );
 }
 
 function shikkosa_sdek_detect_profiles_from_tariff_ids( $ids ) {
@@ -1129,11 +1145,12 @@ function shikkosa_sdek_render_wc_shipping_manager() {
         <table class="shk-sdek-inline-table" role="presentation">
             <thead>
                 <tr>
-                    <th style="width:16%">Тип</th>
-                    <th style="width:20%">Название</th>
+                    <th style="width:14%">Тип</th>
+                    <th style="width:8%">Видим</th>
+                    <th style="width:18%">Название</th>
                     <th style="width:10%">Стоимость</th>
-                    <th style="width:20%">Комментарий к цене</th>
-                    <th style="width:24%">Комментарий по сроку/условиям</th>
+                    <th style="width:18%">Комментарий к цене</th>
+                    <th style="width:22%">Комментарий по сроку/условиям</th>
                     <th style="width:10%">Доп. варианты</th>
                 </tr>
             </thead>
@@ -1143,6 +1160,7 @@ function shikkosa_sdek_render_wc_shipping_manager() {
                 <?php $variants = shikkosa_sdek_get_profile_variants( $opt, $profile_code ); ?>
                 <tr>
                     <td><?php echo esc_html( $title_map[ $profile_code ] ); ?></td>
+                    <td style="text-align:center"><input type="checkbox" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_visible]" value="yes" <?php checked( shikkosa_sdek_is_profile_visible( $opt, $profile_code ) ? 'yes' : 'no', 'yes' ); ?> /></td>
                     <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_label]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_label' ] ) ? $opt[ $profile_code . '_label' ] : '' ); ?>" /></td>
                     <td><input type="number" step="0.01" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_price]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_price' ] ) ? $opt[ $profile_code . '_price' ] : '' ); ?>" /></td>
                     <td><input type="text" name="shikkosa_sdek_settings[<?php echo esc_attr( $profile_code ); ?>_price_comment]" value="<?php echo esc_attr( isset( $opt[ $profile_code . '_price_comment' ] ) ? $opt[ $profile_code . '_price_comment' ] : '' ); ?>" /></td>
@@ -1152,7 +1170,7 @@ function shikkosa_sdek_render_wc_shipping_manager() {
                     </td>
                 </tr>
                 <tr class="shk-extra-row" data-profile="<?php echo esc_attr( $profile_code ); ?>" <?php echo empty( $variants ) ? 'hidden' : ''; ?>>
-                    <td colspan="6">
+                    <td colspan="7">
                         <div class="shk-variants-list" data-profile="<?php echo esc_attr( $profile_code ); ?>" data-next-index="<?php echo esc_attr( (string) count( $variants ) ); ?>">
                             <?php if ( empty( $variants ) ) : ?>
                                 <div class="shk-sdek-empty">Нет доп. вариантов.</div>
@@ -1424,7 +1442,7 @@ function shikkosa_sdek_settings_page() {
     );
     ?>
     <div class="wrap">
-        <h1>SHK СДЭК</h1>
+        <h1>SHK Доставка</h1>
         <p>Деление только для ПВЗ СДЭК. Курьер СДЭК остаётся как в плагине.</p>
         <form method="post" action="options.php">
             <?php settings_fields( 'shikkosa_sdek_settings_group' ); ?>
