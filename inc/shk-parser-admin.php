@@ -541,6 +541,7 @@ function shk_parser_render_admin_page() {
                         <div class="shk-parser-actions">
                             <button class="button" id="shk-parser-bind-existing">Привязать source_slug по slug</button>
                             <button class="button" id="shk-parser-repair-family-links">Repair связки color family</button>
+                            <button class="button button-primary" id="shk-parser-repair-run-data-by-select">Repair цены+related из выбранного run</button>
                             <button class="button button-secondary" id="shk-parser-media-cleanup">Удалить дубли медиа</button>
                         </div>
                     </div>
@@ -829,6 +830,29 @@ function shk_parser_render_admin_page() {
                 await refreshState();
             }
 
+            async function repairRunData() {
+                const run_id = document.getElementById('shk-parser-run-select').value;
+                if (!run_id) return alert('Выберите run');
+                const result = await request('shk_parser_repair_run_data', { run_id }, 'POST');
+                if (!result.success) {
+                    alert(result.data?.message || 'Ошибка repair по run');
+                    return;
+                }
+                const r = result.data?.repair || {};
+                alert(
+                    `Repair run завершен.\n` +
+                    `run_id: ${r.run_id || run_id}\n` +
+                    `Товаров в products.csv: ${r.products_scanned || 0}\n` +
+                    `Найдено в Woo: ${r.products_matched || 0}\n` +
+                    `Обновлено цен: ${r.prices_updated || 0}\n` +
+                    `Найдено перевернутых цен: ${r.prices_swapped_detected || 0}\n` +
+                    `Товаров с пересборкой related: ${r.related_products || 0}\n` +
+                    `Обновлено related: ${r.related_updated || 0}\n` +
+                    `Очищено related: ${r.related_cleared || 0}`
+                );
+                await refreshState();
+            }
+
             async function uploadRunZip() {
                 const input = document.getElementById('shk-parser-run-zip');
                 const note = document.getElementById('shk-parser-upload-note');
@@ -915,6 +939,7 @@ function shk_parser_render_admin_page() {
             document.getElementById('shk-parser-map-auto').addEventListener('click', autoMapCategories);
             document.getElementById('shk-parser-bind-existing').addEventListener('click', bindExistingProducts);
             document.getElementById('shk-parser-repair-family-links').addEventListener('click', repairFamilyLinks);
+            document.getElementById('shk-parser-repair-run-data-by-select').addEventListener('click', repairRunData);
             document.getElementById('shk-parser-media-cleanup').addEventListener('click', () => runImport('media_cleanup'));
             document.getElementById('shk-parser-upload-run-zip').addEventListener('click', uploadRunZip);
 

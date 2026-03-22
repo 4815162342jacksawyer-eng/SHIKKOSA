@@ -844,7 +844,7 @@ function shikkosa_find_products_referencing_source_slug_local( $source_slug, $ex
     return $ids;
 }
 
-function shikkosa_collect_related_ids_local( $product_id ) {
+function shikkosa_collect_related_ids_strict_local( $product_id ) {
     $product_id = (int) $product_id;
     if ( $product_id <= 0 ) {
         return array();
@@ -860,8 +860,36 @@ function shikkosa_collect_related_ids_local( $product_id ) {
         }
     }
 
+    $ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+    $ids = array_values(
+        array_filter(
+            $ids,
+            static function( $id ) use ( $product_id ) {
+                return (int) $id !== $product_id;
+            }
+        )
+    );
+
+    return $ids;
+}
+
+function shikkosa_collect_related_ids_local( $product_id, $include_color_family = false ) {
+    $ids = shikkosa_collect_related_ids_strict_local( $product_id );
+    if ( ! $include_color_family ) {
+        return $ids;
+    }
+
+    $product_id = (int) $product_id;
     $ids = array_merge( $ids, shikkosa_collect_color_family_ids_local( $product_id, false ) );
     $ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+    $ids = array_values(
+        array_filter(
+            $ids,
+            static function( $id ) use ( $product_id ) {
+                return (int) $id !== $product_id;
+            }
+        )
+    );
 
     return $ids;
 }

@@ -775,29 +775,9 @@ function shk_parser_import_product_row( array $row, $run_id ) {
     // 1:1 sync mode: imported donor products should be visible immediately.
     $product->set_status( 'publish' );
 
-    $raw_regular_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price_before_discount'] ?? '' ) );
-    $raw_sale_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price'] ?? '' ) );
-    $raw_regular_price = str_replace( ',', '.', $raw_regular_price );
-    $raw_sale_price = str_replace( ',', '.', $raw_sale_price );
-
-    $regular_price = '';
-    $sale_price = '';
-
-    $regular_float = ( '' !== $raw_regular_price && is_numeric( $raw_regular_price ) ) ? (float) $raw_regular_price : 0.0;
-    $sale_float = ( '' !== $raw_sale_price && is_numeric( $raw_sale_price ) ) ? (float) $raw_sale_price : 0.0;
-
-    if ( $regular_float > 0 && $sale_float > 0 ) {
-        $high = max( $regular_float, $sale_float );
-        $low = min( $regular_float, $sale_float );
-        $regular_price = wc_format_decimal( $high );
-        if ( $low < $high ) {
-            $sale_price = wc_format_decimal( $low );
-        }
-    } elseif ( $sale_float > 0 ) {
-        $regular_price = wc_format_decimal( $sale_float );
-    } elseif ( $regular_float > 0 ) {
-        $regular_price = wc_format_decimal( $regular_float );
-    }
+    $normalized_prices = shk_parser_normalize_prices_from_row( $row );
+    $regular_price = (string) ( $normalized_prices['regular'] ?? '' );
+    $sale_price = (string) ( $normalized_prices['sale'] ?? '' );
 
     if ( '' !== $regular_price ) {
         $product->set_regular_price( $regular_price );
@@ -858,6 +838,181 @@ function shk_parser_import_product_row( array $row, $run_id ) {
         'product_id' => (int) $saved_id,
         'created'    => $created,
     ];
+}
+
+function shk_parser_normalize_prices_from_row( array $row ) {
+    $raw_regular_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price_before_discount'] ?? '' ) );
+    $raw_sale_price = preg_replace( '/[^\d.,]/', '', (string) ( $row['price'] ?? '' ) );
+    $raw_regular_price = str_replace( ',', '.', (string) $raw_regular_price );
+    $raw_sale_price = str_replace( ',', '.', (string) $raw_sale_price );
+
+    $regular_price = '';
+    $sale_price = '';
+    $swapped = false;
+
+    $regular_float = ( '' !== $raw_regular_price && is_numeric( $raw_regular_price ) ) ? (float) $raw_regular_price : 0.0;
+    $sale_float = ( '' !== $raw_sale_price && is_numeric( $raw_sale_price ) ) ? (float) $raw_sale_price : 0.0;
+
+    if ( $regular_float > 0 && $sale_float > 0 ) {
+        $swapped = ( $regular_float < $sale_float );
+        $high = max( $regular_float, $sale_float );
+        $low = min( $regular_float, $sale_float );
+        $regular_price = wc_format_decimal( $high );
+        if ( $low < $high ) {
+            $sale_price = wc_format_decimal( $low );
+        }
+    } elseif ( $sale_float > 0 ) {
+        $regular_price = wc_format_decimal( $sale_float );
+    } elseif ( $regular_float > 0 ) {
+        $regular_price = wc_format_decimal( $regular_float );
+    }
+
+    return [
+        'regular' => $regular_price,
+        'sale'    => $sale_price,
+        'swapped' => $swapped,
+    ];
+}
+
+function shk_parser_repair_from_run( $run_id ) {
+    $run_id = sanitize_text_field( (string) $run_id );
+    if ( '' === $run_id ) {
+        return new WP_Error( 'missing_run_id', 'Не передан run_id.' );
+    }
+
+    $run = shk_parser_get_run( $run_id );
+    if ( empty( $run ) ) {
+        return new WP_Error( 'run_not_found', 'Run не найден: ' . $run_id );
+    }
+
+    $products_path = $run['files']['products'] ?? '';
+    if ( ! $products_path || ! file_exists( $products_path ) ) {
+        return new WP_Error( 'products_missing', 'products.csv не найден для run: ' . $run_id );
+    }
+
+    $stats = [
+        'run_id'                  => $run_id,
+        'products_scanned'        => 0,
+        'products_matched'        => 0,
+        'prices_updated'          => 0,
+        'prices_swapped_detected' => 0,
+        'related_products'        => 0,
+        'related_updated'         => 0,
+        'related_cleared'         => 0,
+    ];
+
+    $rows = shk_parser_read_csv_assoc( $products_path );
+    $product_ids_from_run = [];
+
+    foreach ( $rows as $row ) {
+        $source_slug = trim( (string) ( $row['slug'] ?? '' ) );
+        if ( '' === $source_slug ) {
+            continue;
+        }
+
+        $stats['products_scanned']++;
+        $product_id = (int) shk_parser_find_product_id_by_source_slug( $source_slug );
+        if ( $product_id <= 0 ) {
+            continue;
+        }
+
+        $stats['products_matched']++;
+        $product_ids_from_run[ $product_id ] = true;
+
+        $product = wc_get_product( $product_id );
+        if ( ! $product ) {
+            continue;
+        }
+
+        $normalized_prices = shk_parser_normalize_prices_from_row( $row );
+        $regular_price = (string) ( $normalized_prices['regular'] ?? '' );
+        $sale_price = (string) ( $normalized_prices['sale'] ?? '' );
+        if ( ! empty( $normalized_prices['swapped'] ) ) {
+            $stats['prices_swapped_detected']++;
+        }
+
+        if ( '' === $regular_price && '' === $sale_price ) {
+            continue;
+        }
+
+        $old_regular = (float) $product->get_regular_price();
+        $old_sale = (float) $product->get_sale_price();
+        $new_regular = ( '' !== $regular_price ) ? (float) $regular_price : 0.0;
+        $new_sale = ( '' !== $sale_price ) ? (float) $sale_price : 0.0;
+
+        if ( abs( $old_regular - $new_regular ) < 0.00001 && abs( $old_sale - $new_sale ) < 0.00001 ) {
+            continue;
+        }
+
+        if ( '' !== $regular_price ) {
+            $product->set_regular_price( $regular_price );
+        }
+        $product->set_sale_price( $sale_price );
+        $product->save();
+
+        if ( function_exists( 'wc_delete_product_transients' ) ) {
+            wc_delete_product_transients( $product_id );
+        }
+
+        $stats['prices_updated']++;
+    }
+
+    $related_bucket = [];
+    $related_path = $run['files']['related'] ?? '';
+    if ( $related_path && file_exists( $related_path ) ) {
+        $related_rows = shk_parser_read_csv_assoc( $related_path );
+        foreach ( $related_rows as $row ) {
+            $product_slug = trim( (string) ( $row['product_slug'] ?? '' ) );
+            $related_slug = trim( (string) ( $row['related_slug'] ?? '' ) );
+            if ( '' === $product_slug || '' === $related_slug ) {
+                continue;
+            }
+
+            $product_id = (int) shk_parser_find_product_id_by_source_slug( $product_slug );
+            $related_id = (int) shk_parser_find_product_id_by_source_slug( $related_slug );
+            if ( $product_id <= 0 || $related_id <= 0 || $product_id === $related_id ) {
+                continue;
+            }
+
+            if ( ! isset( $related_bucket[ $product_id ] ) ) {
+                $related_bucket[ $product_id ] = [];
+            }
+            $related_bucket[ $product_id ][] = $related_id;
+        }
+    }
+
+    foreach ( array_keys( $product_ids_from_run ) as $product_id ) {
+        $product_id = (int) $product_id;
+        if ( $product_id <= 0 ) {
+            continue;
+        }
+
+        $stats['related_products']++;
+        $new_related_ids = isset( $related_bucket[ $product_id ] ) ? (array) $related_bucket[ $product_id ] : [];
+        $new_related_ids = array_values( array_unique( array_filter( array_map( 'intval', $new_related_ids ) ) ) );
+        sort( $new_related_ids );
+
+        $old_related_ids = shikkosa_parse_int_values_local( get_post_meta( $product_id, '_shk_related_ids', true ) );
+        sort( $old_related_ids );
+
+        if ( $old_related_ids !== $new_related_ids ) {
+            if ( empty( $new_related_ids ) ) {
+                delete_post_meta( $product_id, '_shk_related_ids' );
+                $stats['related_cleared']++;
+            } else {
+                update_post_meta( $product_id, '_shk_related_ids', $new_related_ids );
+            }
+            $stats['related_updated']++;
+        }
+
+        $product = wc_get_product( $product_id );
+        if ( $product && method_exists( $product, 'set_upsell_ids' ) ) {
+            $product->set_upsell_ids( $new_related_ids );
+            $product->save();
+        }
+    }
+
+    return $stats;
 }
 
 function shk_parser_finalize_products_1to1( $run_id, array &$job ) {
@@ -2230,6 +2385,31 @@ function shk_parser_ajax_repair_family_links() {
     wp_send_json_success(
         [
             'repair'            => $result,
+            'existing_products' => shk_parser_get_existing_products_stats(),
+        ]
+    );
+}
+
+add_action( 'wp_ajax_shk_parser_repair_run_data', 'shk_parser_ajax_repair_run_data' );
+function shk_parser_ajax_repair_run_data() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( [ 'message' => 'Недостаточно прав.' ], 403 );
+    }
+    check_ajax_referer( 'shk_parser_nonce', 'nonce' );
+
+    $run_id = isset( $_POST['run_id'] ) ? sanitize_text_field( wp_unslash( $_POST['run_id'] ) ) : '';
+    if ( '' === $run_id ) {
+        wp_send_json_error( [ 'message' => 'Не передан run_id.' ], 400 );
+    }
+
+    $repair = shk_parser_repair_from_run( $run_id );
+    if ( is_wp_error( $repair ) ) {
+        wp_send_json_error( [ 'message' => $repair->get_error_message() ], 400 );
+    }
+
+    wp_send_json_success(
+        [
+            'repair'            => $repair,
             'existing_products' => shk_parser_get_existing_products_stats(),
         ]
     );
