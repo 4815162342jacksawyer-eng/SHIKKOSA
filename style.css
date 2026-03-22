@@ -1399,8 +1399,24 @@ a.wishlist_products_counter.top_wishlist-heart::before {
 .catalog-native-menu .elementor-button-icon-qty {
     position: absolute !important;
     top: 50% !important;
-    right: -10px !important;
+    left: 100% !important;
+    right: auto !important;
+    margin-left: 4px !important;
     transform: translateY(-50%) !important;
+}
+.catalog-native-menu .elementor-menu-cart__toggle .elementor-button-icon-qty {
+    top: 50% !important;
+}
+.catalog-native-menu .e-n-menu-title,
+.catalog-native-menu .elementor-menu-cart__toggle,
+.catalog-native-menu #search_top_menu,
+.catalog-native-menu a.wishlist_products_counter.top_wishlist-heart {
+    display: inline-flex !important;
+    align-items: center !important;
+}
+.catalog-native-menu a.wishlist_products_counter.top_wishlist-heart::before {
+    font-size: 22px !important;
+    line-height: 22px !important;
 }
 
 .telegram-link::after {
