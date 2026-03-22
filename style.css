@@ -215,12 +215,16 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-b
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 3px solid #a9a9a9 !important;
+    border: 4px solid #a9a9a9 !important;
     background: #fff;
     box-shadow: none !important;
     cursor: pointer;
     position: relative;
     outline: none !important;
+}
+
+.wc-block-components-radio-control .wc-block-components-radio-control__input:checked:before {
+    background: #00000000 !important;
 }
 
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout .wc-block-components-radio-control__input:checked::after {
