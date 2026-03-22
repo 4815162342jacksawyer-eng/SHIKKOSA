@@ -117,6 +117,47 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (!row.contains(postcodeWrap)) row.appendChild(postcodeWrap);
       }
 
+      function mountShippingModeAsOptions(shippingMethodSwitch, shippingOptions) {
+        if (!shippingMethodSwitch || !shippingOptions) return;
+
+        var sourceContainer = shippingMethodSwitch.querySelector('.wc-block-checkout__shipping-method-container');
+        var shippingOptionsContent = shippingOptions.querySelector('.wc-block-components-checkout-step__content');
+        if (!sourceContainer || !shippingOptionsContent) return;
+
+        var mount = shippingOptionsContent.querySelector('.shk-shipping-mode-list');
+        if (!mount) {
+          mount = document.createElement('div');
+          mount.className = 'shk-shipping-mode-list wc-block-components-radio-control';
+          shippingOptionsContent.insertAdjacentElement('afterbegin', mount);
+        } else {
+          mount.innerHTML = '';
+        }
+
+        var sourceOptions = sourceContainer.querySelectorAll('.wc-block-checkout__shipping-method-option');
+        sourceOptions.forEach(function (srcOpt) {
+          var titleNode = srcOpt.querySelector('.wc-block-checkout__shipping-method-option-title');
+          var titleText = titleNode ? titleNode.textContent.trim() : '';
+          if (!titleText) return;
+
+          var row = document.createElement('div');
+          row.className = 'wc-block-components-radio-control__option shk-shipping-mode-option';
+          if (srcOpt.getAttribute('aria-checked') === 'true') {
+            row.classList.add('wc-block-components-radio-control__option-checked');
+          }
+          row.innerHTML = '<label><span class="wc-block-components-radio-control__option-layout"><span class="wc-block-components-radio-control__label-group"><span class="wc-block-components-radio-control__label"></span></span></span></label>';
+          var label = row.querySelector('.wc-block-components-radio-control__label');
+          if (label) label.textContent = titleText;
+
+          row.addEventListener('click', function () {
+            srcOpt.click();
+          });
+
+          mount.appendChild(row);
+        });
+
+        shippingMethodSwitch.style.display = 'none';
+      }
+
       function forceOrderNote(root) {
         var notes = root.querySelector('#order-notes');
         if (!notes) return;
@@ -286,15 +327,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           (orderNotes || shippingFields).insertAdjacentElement('afterend', payment);
         }
 
-        if (shippingMethodSwitch && shippingOptions) {
-          var switchContainer = shippingMethodSwitch.querySelector('.wc-block-checkout__shipping-method-container');
-          var shippingOptionsContent = shippingOptions.querySelector('.wc-block-components-checkout-step__content');
-          if (switchContainer && shippingOptionsContent && !shippingOptionsContent.contains(switchContainer)) {
-            switchContainer.classList.add('shk-shipping-method-inline');
-            shippingOptionsContent.insertAdjacentElement('afterbegin', switchContainer);
-          }
-          shippingMethodSwitch.style.display = 'none';
-        }
+        mountShippingModeAsOptions(shippingMethodSwitch, shippingOptions);
 
         setTitle(contact, 'Заполните информацию о себе');
         setTitle(shippingOptions, 'Адрес и способ доставки');
