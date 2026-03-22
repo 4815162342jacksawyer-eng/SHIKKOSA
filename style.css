@@ -1412,7 +1412,7 @@ a.wishlist_products_counter.top_wishlist-heart::before {
     transform: translateY(-50%) !important;
 }
 .catalog-native-menu .elementor-menu-cart__toggle .elementor-button-icon-qty {
-    top: 62% !important;
+    top: 70% !important;
     margin-left: 3px !important;
 }
 .catalog-native-menu .e-n-menu-item:has(a.wishlist_products_counter.top_wishlist-heart) .e-n-menu-title-text {
