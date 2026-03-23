@@ -1834,11 +1834,13 @@ function shikkosa_sdek_checkout_notes_blocks() {
       var iv = setInterval(function () {
         t++;
         applyNotes();
-        if (t > 80) clearInterval(iv);
+        if (t > 240) clearInterval(iv);
       }, 250);
 
       document.addEventListener('change', applyNotes);
       document.addEventListener('wc-blocks_checkout_update', applyNotes);
+      window.setTimeout(applyNotes, 1200);
+      window.setTimeout(applyNotes, 4000);
     })();
     </script>
     <?php

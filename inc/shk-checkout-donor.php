@@ -12,6 +12,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
     <script>
     (function () {
       if (!document.body.classList.contains('woocommerce-checkout')) return;
+      var shkLastSyncedCity = '';
 
       function setTitle(section, text) {
         if (!section) return;
@@ -88,6 +89,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       function syncWooShippingCity(root, cityValue) {
         var value = String(cityValue || '').trim();
         if (!value) return;
+        if (shkLastSyncedCity === value) return;
 
         var cityInputs = [];
         if (root) {
@@ -96,12 +98,13 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           });
         }
 
+        var changed = false;
         cityInputs.forEach(function(cityInput){
           if (String(cityInput.value || '').trim() === value) return;
           cityInput.value = value;
           cityInput.dispatchEvent(new Event('input', { bubbles: true }));
           cityInput.dispatchEvent(new Event('change', { bubbles: true }));
-          cityInput.dispatchEvent(new Event('blur', { bubbles: true }));
+          changed = true;
         });
 
         var wpData = window.wp && window.wp.data ? window.wp.data : null;
@@ -110,21 +113,17 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           if (cartDispatch) {
             if (typeof cartDispatch.setShippingAddress === 'function') {
               cartDispatch.setShippingAddress({ city: value });
+              changed = true;
             } else if (typeof cartDispatch.__experimentalSetShippingAddress === 'function') {
               cartDispatch.__experimentalSetShippingAddress({ city: value });
-            }
-          }
-          var checkoutDispatch = wpData.dispatch('wc/store/checkout');
-          if (checkoutDispatch) {
-            if (typeof checkoutDispatch.setShippingAddress === 'function') {
-              checkoutDispatch.setShippingAddress({ city: value });
-            } else if (typeof checkoutDispatch.__experimentalSetShippingAddress === 'function') {
-              checkoutDispatch.__experimentalSetShippingAddress({ city: value });
+              changed = true;
             }
           }
         }
 
-        document.dispatchEvent(new Event('wc_update_checkout'));
+        if (changed) {
+          shkLastSyncedCity = value;
+        }
       }
 
       function bindCdekMapCitySync(root) {
