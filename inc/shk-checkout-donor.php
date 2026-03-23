@@ -13,6 +13,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
     (function () {
       if (!document.body.classList.contains('woocommerce-checkout')) return;
       var shkLastSyncedCity = '';
+      var shkFallbackCityApplied = false;
 
       function setTitle(section, text) {
         if (!section) return;
@@ -93,8 +94,9 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             selectedHay.indexOf('сдэк') !== -1 ||
             selectedHay.indexOf('пвз') !== -1;
 
-          if (isCdekLike && !getCurrentWooShippingCity(root)) {
+          if (!shkFallbackCityApplied && isCdekLike && !getCurrentWooShippingCity(root)) {
             syncWooShippingCity(root, 'Москва');
+            shkFallbackCityApplied = true;
           }
         } else {
           shippingFields.classList.remove('shk-shipping-address-disabled');
@@ -174,65 +176,10 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       }
 
       function bindCdekMapCitySync(root) {
-        if (!root) return;
-
-        var selectors = [
-          '.wc-block-checkout__shipping-option input[type="search"]',
-          '.wc-block-checkout__shipping-option input[placeholder*="оиск"]',
-          '.wc-block-checkout__shipping-option input[placeholder*="Поиск"]',
-          '.wc-block-checkout__shipping-option input[placeholder*="search"]',
-          '.wc-block-checkout__shipping-option input[placeholder*="Search"]'
-        ];
-
-        var searchInputs = [];
-        selectors.forEach(function(sel) {
-          root.querySelectorAll(sel).forEach(function(el) {
-            if (searchInputs.indexOf(el) === -1) searchInputs.push(el);
-          });
-        });
-        if (!searchInputs.length) return;
-
-        searchInputs.forEach(function(searchInput) {
-          if (searchInput.dataset.shkCdekCityBound === '1') return;
-
-          var pushCityFromSelectedSuggestion = function() {
-            // IMPORTANT: never sync from raw typing. Read value only after
-            // explicit suggestion selection when widget has finalized input.
-            var raw = String(searchInput.value || '').trim();
-            if (!raw) return;
-            var normalized = raw.replace(/\s+/g, ' ');
-            var city = normalized.split(',')[0].trim();
-            if (!city) city = normalized;
-            if (city.length < 2) return;
-            syncWooShippingCity(root, city);
-          };
-
-          searchInput.addEventListener('focus', function() {
-            window.__shkActiveCdekSearchInput = searchInput;
-          });
-
-          if (document && !document.body.dataset.shkCdekSuggestGlobalBound) {
-            document.addEventListener('click', function(evt) {
-              var activeInput = window.__shkActiveCdekSearchInput || null;
-              if (!activeInput) return;
-              var t = evt.target;
-              if (!t) return;
-              var suggestionNode = t.closest('[role="option"], [role="listbox"] *, .autocomplete-suggestion, .suggest-item');
-              if (!suggestionNode) return;
-              window.setTimeout(function() {
-                var raw = String(activeInput.value || '').trim();
-                if (!raw || raw.length < 2) return;
-                var normalized = raw.replace(/\s+/g, ' ');
-                var city = normalized.split(',')[0].trim();
-                if (!city) city = normalized;
-                syncWooShippingCity(root, city);
-              }, 80);
-            }, true);
-            document.body.dataset.shkCdekSuggestGlobalBound = '1';
-          }
-
-          searchInput.dataset.shkCdekCityBound = '1';
-        });
+        // Disabled intentionally: syncing Woo city from CDEK search triggers
+        // expensive checkout recalculations and resets selected shipping method.
+        // We keep one-time fallback city only for initial map bootstrap.
+        return;
       }
 
       function enforceAddressFieldVisibility(root) {
