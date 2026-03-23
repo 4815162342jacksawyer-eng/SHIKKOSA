@@ -14,6 +14,31 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       if (!document.body.classList.contains('woocommerce-checkout')) return;
       var shkLastSyncedCity = '';
       var shkFallbackCityApplied = false;
+      var shkDebug = {
+        enabled: true,
+        prefix: '[SHK checkout]'
+      };
+
+      function dbg() {
+        if (!shkDebug.enabled || !window.console || typeof window.console.log !== 'function') return;
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift(shkDebug.prefix);
+        window.console.log.apply(window.console, args);
+      }
+
+      function getSelectedShippingDebug(root) {
+        if (!root) return { value: '', label: '' };
+        var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+        if (!shippingOptions) return { value: '', label: '' };
+        var selected = shippingOptions.querySelector('.wc-block-components-radio-control__input:checked');
+        if (!selected) return { value: '', label: '' };
+        var option = selected.closest('.wc-block-components-radio-control__option');
+        var label = option ? String(option.textContent || '').trim().replace(/\s+/g, ' ') : '';
+        return {
+          value: String(selected.value || ''),
+          label: label
+        };
+      }
 
       function setTitle(section, text) {
         if (!section) return;
@@ -77,6 +102,11 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         });
 
         var disableAddressInputs = !!firstValue && selectedValue !== firstValue;
+        dbg('syncShippingAddressAvailability', {
+          firstValue: firstValue,
+          selectedValue: selectedValue,
+          disableAddressInputs: disableAddressInputs
+        });
         if (disableAddressInputs) {
           shippingFields.classList.add('shk-shipping-address-disabled');
           shippingFields.setAttribute('aria-disabled', 'true');
@@ -95,6 +125,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             selectedHay.indexOf('пвз') !== -1;
 
           if (!shkFallbackCityApplied && isCdekLike && !getCurrentWooShippingCity(root)) {
+            dbg('fallback city -> Москва (once)');
             syncWooShippingCity(root, 'Москва');
             shkFallbackCityApplied = true;
           }
@@ -132,11 +163,19 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       }
 
       function syncWooShippingCity(root, cityValue) {
+        var started = performance.now();
         var value = String(cityValue || '').trim();
-        if (!value) return;
-        if (shkLastSyncedCity === value) return;
+        if (!value) {
+          dbg('syncWooShippingCity: skip empty');
+          return;
+        }
+        if (shkLastSyncedCity === value) {
+          dbg('syncWooShippingCity: skip same as last', value);
+          return;
+        }
         if (getCurrentWooShippingCity(root) === value) {
           shkLastSyncedCity = value;
+          dbg('syncWooShippingCity: already current', value);
           return;
         }
 
@@ -173,6 +212,11 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (changed) {
           shkLastSyncedCity = value;
         }
+        dbg('syncWooShippingCity: done', {
+          value: value,
+          changed: changed,
+          ms: Math.round(performance.now() - started)
+        });
       }
 
       function normalizeCityName(raw) {
@@ -213,10 +257,19 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       }
 
       function attemptSyncCityFromCdekSelection(root) {
+        var started = performance.now();
         var city = extractCityFromCdekFields(root);
-        if (!city) return;
-        if (city.toLowerCase() === 'россия') return;
+        if (!city) {
+          dbg('attemptSyncCityFromCdekSelection: no city extracted');
+          return;
+        }
+        if (city.toLowerCase() === 'россия') {
+          dbg('attemptSyncCityFromCdekSelection: skip country value', city);
+          return;
+        }
+        dbg('attemptSyncCityFromCdekSelection: extracted city', city);
         syncWooShippingCity(root, city);
+        dbg('attemptSyncCityFromCdekSelection: finished', Math.round(performance.now() - started) + 'ms');
       }
 
       function bindCdekMapCitySync(root) {
@@ -240,7 +293,12 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             selectedHay.indexOf('sdek') !== -1 ||
             selectedHay.indexOf('сдэк') !== -1 ||
             selectedHay.indexOf('пвз') !== -1;
-          if (!isCdekLike) return;
+          if (!isCdekLike) {
+            dbg('shipping option click: non-CDEK, no city sync');
+            return;
+          }
+
+          dbg('shipping option click: CDEK-like selected, schedule city extraction');
 
           // Sync only after actual selection interactions in widget UI.
           window.setTimeout(function(){ attemptSyncCityFromCdekSelection(root); }, 140);
@@ -667,8 +725,12 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       }
 
       function applyTweaks() {
+        var started = performance.now();
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
-        if (!root) return false;
+        if (!root) {
+          dbg('applyTweaks: checkout root not ready');
+          return false;
+        }
         if (root.dataset.shkDonorReady === '1') return true;
 
         var contact = root.querySelector('fieldset.wc-block-checkout__contact-fields');
@@ -676,7 +738,10 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
         var payment = root.querySelector('fieldset.wc-block-checkout__payment-method');
 
-        if (!contact || !shippingFields || !shippingOptions || !payment) return false;
+        if (!contact || !shippingFields || !shippingOptions || !payment) {
+          dbg('applyTweaks: required blocks not ready');
+          return false;
+        }
         enforceCheckoutOrder(root);
 
         mountUnifiedShippingRates(root);
@@ -779,6 +844,10 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         document.body.classList.add('shk-checkout-donor-ready');
 
         document.dispatchEvent(new Event('wc_update_checkout'));
+        dbg('applyTweaks: ready', {
+          ms: Math.round(performance.now() - started),
+          selectedShipping: getSelectedShippingDebug(root)
+        });
         return true;
       }
 
@@ -793,6 +862,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       document.addEventListener('change', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        dbg('event: change', getSelectedShippingDebug(root));
         enforceCheckoutOrder(root);
         mountUnifiedShippingRates(root);
         enforceAddressFieldVisibility(root);
@@ -808,6 +878,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       document.addEventListener('wc-blocks_checkout_update', function () {
         var root = document.querySelector('.wp-block-woocommerce-checkout.wc-block-checkout');
+        dbg('event: wc-blocks_checkout_update', getSelectedShippingDebug(root));
         enforceCheckoutOrder(root);
         mountUnifiedShippingRates(root);
         enforceAddressFieldVisibility(root);
