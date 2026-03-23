@@ -165,13 +165,27 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (!root) return;
         var value = String(cityValue || '').trim();
         if (!value) return;
+        var hasCity = !!getCurrentWooShippingCity(root);
+        if (hasCity) return;
 
         var cityInput = root.querySelector('#shipping-city, input[name="shipping_city"], input[name="shipping-city"], .wc-block-components-address-form__city input');
-        if (!cityInput) return;
-        if (String(cityInput.value || '').trim()) return;
+        if (cityInput) {
+          cityInput.value = value;
+          cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+          cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
 
-        cityInput.value = value;
-        cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+        var wpData = window.wp && window.wp.data ? window.wp.data : null;
+        if (wpData && wpData.dispatch) {
+          var cartDispatch = wpData.dispatch('wc/store/cart');
+          if (cartDispatch) {
+            if (typeof cartDispatch.setShippingAddress === 'function') {
+              cartDispatch.setShippingAddress({ city: value });
+            } else if (typeof cartDispatch.__experimentalSetShippingAddress === 'function') {
+              cartDispatch.__experimentalSetShippingAddress({ city: value });
+            }
+          }
+        }
       }
 
       function syncWooShippingCity(root, cityValue) {
