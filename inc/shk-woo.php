@@ -785,6 +785,91 @@ function shikkosa_certificate_product_id_local() {
     return $product_id > 0 ? $product_id : 0;
 }
 
+function shikkosa_enforce_certificate_product_rules_local( $product_id ) {
+    $product_id = (int) $product_id;
+    if ( $product_id <= 0 ) {
+        return;
+    }
+    $product = wc_get_product( $product_id );
+    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+        return;
+    }
+
+    // Скрываем от витрины, но оставляем продаваемым.
+    $product->set_catalog_visibility( 'hidden' );
+    $product->set_virtual( true );
+    $product->set_manage_stock( true );
+    $product->set_stock_quantity( 0 );
+    $product->set_backorders( 'yes' );
+    $product->set_stock_status( 'instock' );
+    $product->save();
+}
+
+add_action(
+    'admin_init',
+    function() {
+        if ( ! is_admin() || ! current_user_can( 'manage_woocommerce' ) ) {
+            return;
+        }
+        if ( ! isset( $_POST['option_page'] ) || 'shikkosa_marketing_settings_group' !== (string) wp_unslash( $_POST['option_page'] ) ) {
+            return;
+        }
+        if ( ! isset( $_POST[ shikkosa_marketing_certificate_product_id_option_key_local() ] ) ) {
+            return;
+        }
+        $product_id = absint( wp_unslash( $_POST[ shikkosa_marketing_certificate_product_id_option_key_local() ] ) );
+        if ( $product_id <= 0 ) {
+            return;
+        }
+        shikkosa_enforce_certificate_product_rules_local( $product_id );
+    },
+    50
+);
+
+add_filter(
+    'woocommerce_is_purchasable',
+    function( $purchasable, $product ) {
+        $cert_id = shikkosa_certificate_product_id_local();
+        if ( $cert_id > 0 && $product && is_a( $product, 'WC_Product' ) && (int) $product->get_id() === $cert_id ) {
+            return true;
+        }
+        return $purchasable;
+    },
+    20,
+    2
+);
+
+add_filter(
+    'woocommerce_product_is_in_stock',
+    function( $in_stock, $product ) {
+        $cert_id = shikkosa_certificate_product_id_local();
+        if ( $cert_id > 0 && $product && is_a( $product, 'WC_Product' ) && (int) $product->get_id() === $cert_id ) {
+            return true;
+        }
+        return $in_stock;
+    },
+    20,
+    2
+);
+
+add_filter(
+    'woocommerce_product_backorders_allowed',
+    function( $allowed, $product_id, $product ) {
+        $cert_id = shikkosa_certificate_product_id_local();
+        if ( $cert_id > 0 ) {
+            if ( $product && is_a( $product, 'WC_Product' ) && (int) $product->get_id() === $cert_id ) {
+                return true;
+            }
+            if ( (int) $product_id === $cert_id ) {
+                return true;
+            }
+        }
+        return $allowed;
+    },
+    20,
+    3
+);
+
 function shikkosa_certificate_cart_item_data_key_local() {
     return 'shk_certificate_payload';
 }
