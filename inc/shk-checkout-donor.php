@@ -268,6 +268,25 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         );
       }
 
+      function extractCityFromText(raw) {
+        var text = String(raw || '').trim();
+        if (!text) return '';
+        var chunks = text.split(',').map(function(v){ return normalizeCityName(v); }).filter(Boolean);
+        for (var i = chunks.length - 1; i >= 0; i--) {
+          var ch = String(chunks[i] || '').trim();
+          if (!ch) continue;
+          if (/\d/.test(ch)) continue;
+          if (isRegionLikeChunk(ch)) continue;
+          if (ch.length < 3) continue;
+          return ch;
+        }
+        var single = normalizeCityName(text);
+        if (single && !/\d/.test(single) && !isRegionLikeChunk(single) && single.length >= 3) {
+          return single;
+        }
+        return '';
+      }
+
       function extractCityFromCdekFields(root) {
         if (!root) return '';
         var candidates = [];
@@ -283,17 +302,8 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
         for (var i = 0; i < candidates.length; i++) {
           var text = String(candidates[i] || '');
-          if (text.indexOf(',') !== -1) {
-            var chunks = text.split(',').map(function(v){ return normalizeCityName(v); }).filter(Boolean);
-            for (var c = chunks.length - 1; c >= 0; c--) {
-              var ch = String(chunks[c] || '').trim();
-              if (!ch) continue;
-              if (/\d/.test(ch)) continue;
-              if (isRegionLikeChunk(ch)) continue;
-              if (ch.length < 3) continue;
-              return ch;
-            }
-          }
+          var cityByText = extractCityFromText(text);
+          if (cityByText) return cityByText;
 
           var byCityPrefix = text.match(/(?:^|,\s*)г\.\s*([A-Za-zА-Яа-яЁё\- ]+)(?:,|$)/i);
           if (byCityPrefix && byCityPrefix[1]) {
@@ -380,8 +390,8 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         root.addEventListener('click', function(e){
           var node = e.target && e.target.closest ? e.target.closest('[role="option"], [class*="suggest"], [class*="dropdown-item"]') : null;
           if (!node) return;
-          var directText = normalizeCityName(String(node.textContent || ''));
-          if (directText && directText.length >= 3 && !isRegionLikeChunk(directText)) {
+          var directText = extractCityFromText(String(node.textContent || ''));
+          if (directText) {
             syncWooShippingCity(root, directText);
             return;
           }
@@ -389,10 +399,37 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }, true);
       }
 
+      function hasAnyCdekShippingOption(root) {
+        if (!root) return false;
+        var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+        if (!shippingOptions) return false;
+        var opts = shippingOptions.querySelectorAll('.wc-block-components-radio-control__option');
+        for (var i = 0; i < opts.length; i++) {
+          var opt = opts[i];
+          var input = opt.querySelector('.wc-block-components-radio-control__input');
+          var hay = (
+            String(input ? input.value || '' : '') + ' ' +
+            String(input ? input.id || '' : '') + ' ' +
+            String(opt.textContent || '')
+          ).toLowerCase();
+          if (hay.indexOf('cdek') !== -1 || hay.indexOf('sdek') !== -1 || hay.indexOf('сдэк') !== -1 || hay.indexOf('пвз') !== -1) {
+            return true;
+          }
+        }
+        return false;
+      }
+
       function ensureCdekMapBootstrap(root) {
         if (!root) return;
+        if (root.dataset.shkCdekBootstrapDone === '1') return;
         var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
         if (!shippingOptions) return;
+        if (!getCurrentWooShippingCity(root) && !hasAnyCdekShippingOption(root)) {
+          applySoftFallbackCity(root, 'Москва');
+          root.dataset.shkCdekBootstrapDone = '1';
+          return;
+        }
+
         var selected = shippingOptions.querySelector('.wc-block-components-radio-control__input:checked');
         if (!selected) return;
         var opt = selected.closest('.wc-block-components-radio-control__option');
@@ -411,6 +448,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
         if (!getCurrentWooShippingCity(root)) {
           applySoftFallbackCity(root, 'Москва');
+          root.dataset.shkCdekBootstrapDone = '1';
         }
       }
 
