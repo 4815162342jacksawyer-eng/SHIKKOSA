@@ -1314,6 +1314,20 @@ add_action(
     },
     20
 );
+add_action(
+    'woocommerce_order_status_on-hold',
+    function( $order_id ) {
+        shikkosa_issue_certificate_coupons_from_order_local( $order_id );
+    },
+    20
+);
+add_action(
+    'woocommerce_payment_complete',
+    function( $order_id ) {
+        shikkosa_issue_certificate_coupons_from_order_local( $order_id );
+    },
+    20
+);
 
 function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
     if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
