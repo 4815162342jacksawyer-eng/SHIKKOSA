@@ -3173,23 +3173,20 @@ add_action(
             if ( ! empty( $size_qty_rows ) ) {
                 $allow_add_size = ! $product->is_type( 'variable' );
                 echo '<div class="shk-size-qty-wrap">';
-                echo '<div class="shk-size-qty-sizes">';
-                foreach ( $size_qty_rows as $row ) {
-                    $size = (string) ( $row['size'] ?? '' );
-                    echo '<span class="shk-size-chip">' . esc_html( $size ) . '</span>';
-                }
-                if ( $allow_add_size ) {
-                    echo '<button type="button" class="button-link shk-size-add" data-field="add_size_row" title="Добавить размер">+</button>';
-                }
-                echo '</div>';
-                echo '<div class="shk-size-qty-inputs">';
+                echo '<div class="shk-size-qty-list">';
                 foreach ( $size_qty_rows as $row ) {
                     $size = (string) ( $row['size'] ?? '' );
                     $qty = (string) ( $row['qty'] ?? '' );
                     $variation_id = (int) ( $row['variation_id'] ?? 0 );
+                    echo '<div class="shk-size-qty-row">';
+                    echo '<span class="shk-size-chip">' . esc_html( $size ) . '</span>';
                     echo '<input type="number" class="shk-inline-input" data-field="size_qty" data-size="' . esc_attr( $size ) . '" data-variation-id="' . esc_attr( (string) $variation_id ) . '" value="' . esc_attr( $qty ) . '" step="1" min="0" placeholder="0" />';
+                    echo '</div>';
                 }
                 echo '</div>';
+                if ( $allow_add_size ) {
+                    echo '<button type="button" class="button-link shk-size-add" data-field="add_size_row" title="Добавить размер">+</button>';
+                }
                 echo '<span class="shk-inline-status" aria-hidden="true"></span>';
                 echo '</div>';
                 return;
@@ -3272,11 +3269,16 @@ add_action(
                 gap: 4px;
                 align-items: center;
             }
-            .post-type-product .wp-list-table .shk-size-qty-sizes,
-            .post-type-product .wp-list-table .shk-size-qty-inputs {
+            .post-type-product .wp-list-table .shk-size-qty-list {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+                grid-template-columns: 1fr;
                 gap: 4px;
+            }
+            .post-type-product .wp-list-table .shk-size-qty-row {
+                display: grid;
+                grid-template-columns: minmax(56px, auto) 80px;
+                gap: 6px;
+                align-items: center;
             }
             .post-type-product .wp-list-table .shk-size-chip {
                 display: inline-flex;
@@ -3292,7 +3294,7 @@ add_action(
                 white-space: nowrap;
             }
             .post-type-product .wp-list-table .shk-size-add {
-                min-width: 18px;
+                width: 28px;
                 height: 22px;
                 line-height: 22px;
                 text-align: center;
@@ -3446,10 +3448,9 @@ add_action(
               var variationId = parseInt(String(res.data.variation_id || '0'), 10) || 0;
 
               var $wrap = $btn.closest('.shk-size-qty-wrap');
-              var $sizes = $wrap.find('.shk-size-qty-sizes');
-              var $inputs = $wrap.find('.shk-size-qty-inputs');
-              $btn.before('<span class="shk-size-chip">' + $('<div/>').text(size).html() + '</span>');
-              $inputs.append('<input type="number" class="shk-inline-input" data-field="size_qty" data-size="' + $('<div/>').text(size).html() + '" data-variation-id="' + variationId + '" value="' + qty + '" step="1" min="0" placeholder="0" />');
+              var $list = $wrap.find('.shk-size-qty-list');
+              var sizeEsc = $('<div/>').text(size).html();
+              $list.append('<div class="shk-size-qty-row"><span class="shk-size-chip">' + sizeEsc + '</span><input type="number" class="shk-inline-input" data-field="size_qty" data-size="' + sizeEsc + '" data-variation-id="' + variationId + '" value="' + qty + '" step="1" min="0" placeholder="0" /></div>');
               showStatus($btn, true);
             }).fail(function(){
               showStatus($btn, false);
