@@ -76,9 +76,11 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (disableAddressInputs) {
           shippingFields.classList.add('shk-shipping-address-disabled');
           shippingFields.setAttribute('aria-disabled', 'true');
+          shippingFields.style.setProperty('display', 'none', 'important');
         } else {
           shippingFields.classList.remove('shk-shipping-address-disabled');
           shippingFields.removeAttribute('aria-disabled');
+          shippingFields.style.removeProperty('display');
         }
 
         var inputs = shippingFields.querySelectorAll('input, select, textarea');
