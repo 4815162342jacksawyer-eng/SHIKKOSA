@@ -1329,6 +1329,116 @@ add_action(
     20
 );
 
+add_filter(
+    'manage_edit-shop_coupon_columns',
+    function( $columns ) {
+        if ( ! is_array( $columns ) ) {
+            return $columns;
+        }
+        $out = array();
+        foreach ( $columns as $key => $label ) {
+            $out[ $key ] = $label;
+            if ( 'coupon_amount' === $key ) {
+                $out['shk_certificate'] = 'Сертификат';
+            }
+        }
+        if ( ! isset( $out['shk_certificate'] ) ) {
+            $out['shk_certificate'] = 'Сертификат';
+        }
+        return $out;
+    },
+    20
+);
+
+add_action(
+    'manage_shop_coupon_posts_custom_column',
+    function( $column, $post_id ) {
+        if ( 'shk_certificate' !== (string) $column ) {
+            return;
+        }
+        $is_certificate = 'yes' === (string) get_post_meta( (int) $post_id, '_shk_certificate_coupon', true );
+        if ( ! $is_certificate ) {
+            echo '&#8212;';
+            return;
+        }
+
+        $order_id = (int) get_post_meta( (int) $post_id, '_shk_certificate_order_id', true );
+        echo '<strong style="color:#2271b1;">Да</strong>';
+        if ( $order_id > 0 ) {
+            $url = admin_url( 'post.php?post=' . $order_id . '&action=edit' );
+            echo '<br/><a href="' . esc_url( $url ) . '">Заказ #' . esc_html( (string) $order_id ) . '</a>';
+        }
+    },
+    20,
+    2
+);
+
+add_action(
+    'pre_get_posts',
+    function( $query ) {
+        if ( ! is_admin() || ! $query || ! is_a( $query, 'WP_Query' ) ) {
+            return;
+        }
+        if ( ! $query->is_main_query() ) {
+            return;
+        }
+        if ( 'shop_coupon' !== (string) $query->get( 'post_type' ) ) {
+            return;
+        }
+        if ( '1' !== (string) $query->get( 'shk_certificate' ) ) {
+            return;
+        }
+
+        $meta_query = (array) $query->get( 'meta_query', array() );
+        $meta_query[] = array(
+            'key'     => '_shk_certificate_coupon',
+            'value'   => 'yes',
+            'compare' => '=',
+        );
+        $query->set( 'meta_query', $meta_query );
+    },
+    20
+);
+
+add_filter(
+    'views_edit-shop_coupon',
+    function( $views ) {
+        if ( ! is_array( $views ) ) {
+            $views = array();
+        }
+
+        $base_url = admin_url( 'edit.php?post_type=shop_coupon' );
+        $is_current = ( isset( $_GET['shk_certificate'] ) && '1' === (string) wp_unslash( $_GET['shk_certificate'] ) );
+
+        $count_query = new WP_Query(
+            array(
+                'post_type'              => 'shop_coupon',
+                'post_status'            => 'publish',
+                'posts_per_page'         => 1,
+                'fields'                 => 'ids',
+                'no_found_rows'          => false,
+                'update_post_meta_cache' => false,
+                'update_post_term_cache' => false,
+                'meta_query'             => array(
+                    array(
+                        'key'     => '_shk_certificate_coupon',
+                        'value'   => 'yes',
+                        'compare' => '=',
+                    ),
+                ),
+            )
+        );
+        $count = (int) $count_query->found_posts;
+        wp_reset_postdata();
+
+        $url = add_query_arg( 'shk_certificate', '1', $base_url );
+        $views['shk_certificate'] = '<a href="' . esc_url( $url ) . '"' . ( $is_current ? ' class="current" aria-current="page"' : '' ) . '>Сертификаты <span class="count">(' . esc_html( (string) $count ) . ')</span></a>';
+
+        return $views;
+    },
+    20
+);
+
 function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
     if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
         return $price;
