@@ -1834,22 +1834,11 @@ function shikkosa_sdek_checkout_notes_blocks() {
       var iv = setInterval(function () {
         t++;
         applyNotes();
-        if (t > 240) clearInterval(iv);
+        if (t > 80) clearInterval(iv);
       }, 250);
 
       document.addEventListener('change', applyNotes);
       document.addEventListener('wc-blocks_checkout_update', applyNotes);
-      window.setTimeout(applyNotes, 1200);
-
-      if (window.MutationObserver) {
-        var target = document.querySelector('.wc-block-checkout__shipping-option');
-        if (target) {
-          var mo = new MutationObserver(function() {
-            applyNotes();
-          });
-          mo.observe(target, { childList: true, subtree: true });
-        }
-      }
     })();
     </script>
     <?php
