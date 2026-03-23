@@ -171,21 +171,6 @@ function shikkosa_is_newproducts_product_local( $product ) {
 }
 
 add_filter(
-    'woocommerce_product_is_on_sale',
-    function( $is_on_sale, $product ) {
-        if ( is_admin() && ! wp_doing_ajax() ) {
-            return $is_on_sale;
-        }
-        if ( shikkosa_is_newproducts_product_local( $product ) ) {
-            return true;
-        }
-        return $is_on_sale;
-    },
-    20,
-    2
-);
-
-add_filter(
     'woocommerce_sale_flash',
     function( $html, $post, $product ) {
         if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {

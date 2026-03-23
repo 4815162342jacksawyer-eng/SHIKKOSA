@@ -244,6 +244,25 @@ add_action('wp_footer', function(){ ?>
     scope.querySelectorAll('.elementor-4016.e-loop-item').forEach(function(card){
       if (!card) return;
 
+      var tagWrap = card.querySelector('.shk-product-tag');
+      if (!tagWrap) {
+        var cardContainer = card.querySelector('.elementor-element.elementor-element-2fb22d8');
+        if (cardContainer) {
+          tagWrap = document.createElement('div');
+          tagWrap.className = 'elementor-element elementor-element-92d4a91 elementor-absolute shk-product-tag elementor-widget elementor-widget-shortcode';
+          tagWrap.setAttribute('data-id', '92d4a91');
+          tagWrap.setAttribute('data-element_type', 'widget');
+          tagWrap.setAttribute('data-widget_type', 'shortcode.default');
+          var tagInner = document.createElement('div');
+          tagInner.className = 'elementor-widget-container';
+          var tagShortcode = document.createElement('div');
+          tagShortcode.className = 'elementor-shortcode';
+          tagInner.appendChild(tagShortcode);
+          tagWrap.appendChild(tagInner);
+          cardContainer.insertBefore(tagWrap, cardContainer.firstChild);
+        }
+      }
+
       var tagText = card.querySelector('.shk-product-tag .elementor-shortcode');
       if (!tagText) return;
 
