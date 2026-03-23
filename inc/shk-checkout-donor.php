@@ -82,27 +82,6 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           shippingFields.removeAttribute('aria-disabled');
           shippingFields.style.removeProperty('display');
         }
-
-        var inputs = shippingFields.querySelectorAll('input, select, textarea');
-        inputs.forEach(function(field) {
-          if (field.type === 'hidden') return;
-
-          if (disableAddressInputs) {
-            if (field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio') {
-              field.disabled = true;
-            } else {
-              field.readOnly = true;
-            }
-            field.setAttribute('tabindex', '-1');
-          } else {
-            if (field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio') {
-              field.disabled = false;
-            } else {
-              field.readOnly = false;
-            }
-            field.removeAttribute('tabindex');
-          }
-        });
       }
 
       function enforceAddressFieldVisibility(root) {
