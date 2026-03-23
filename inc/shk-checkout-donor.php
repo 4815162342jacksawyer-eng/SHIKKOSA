@@ -54,6 +54,55 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (el) el.style.display = 'none';
       }
 
+      function syncShippingAddressAvailability(root) {
+        if (!root) return;
+
+        var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+        var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
+        if (!shippingOptions || !shippingFields) return;
+
+        var optionInputs = shippingOptions.querySelectorAll('.wc-block-components-radio-control__input');
+        if (!optionInputs.length) return;
+
+        var firstValue = String(optionInputs[0].value || '');
+        var selectedValue = firstValue;
+        optionInputs.forEach(function(input) {
+          if (input.checked) {
+            selectedValue = String(input.value || '');
+          }
+        });
+
+        var disableAddressInputs = !!firstValue && selectedValue !== firstValue;
+        if (disableAddressInputs) {
+          shippingFields.classList.add('shk-shipping-address-disabled');
+          shippingFields.setAttribute('aria-disabled', 'true');
+        } else {
+          shippingFields.classList.remove('shk-shipping-address-disabled');
+          shippingFields.removeAttribute('aria-disabled');
+        }
+
+        var inputs = shippingFields.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(field) {
+          if (field.type === 'hidden') return;
+
+          if (disableAddressInputs) {
+            if (field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio') {
+              field.disabled = true;
+            } else {
+              field.readOnly = true;
+            }
+            field.setAttribute('tabindex', '-1');
+          } else {
+            if (field.tagName === 'SELECT' || field.type === 'checkbox' || field.type === 'radio') {
+              field.disabled = false;
+            } else {
+              field.readOnly = false;
+            }
+            field.removeAttribute('tabindex');
+          }
+        });
+      }
+
       function enforceAddressFieldVisibility(root) {
         if (!root) return;
         var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
@@ -569,6 +618,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
         forceOrderNote(root);
         enforceAddressFieldVisibility(root);
+        syncShippingAddressAvailability(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -598,6 +648,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         enforceCheckoutOrder(root);
         mountUnifiedShippingRates(root);
         enforceAddressFieldVisibility(root);
+        syncShippingAddressAvailability(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -611,6 +662,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         enforceCheckoutOrder(root);
         mountUnifiedShippingRates(root);
         enforceAddressFieldVisibility(root);
+        syncShippingAddressAvailability(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
