@@ -213,6 +213,38 @@ add_filter(
     3
 );
 
+add_filter(
+    'woocommerce_get_price_html',
+    function( $price_html, $product ) {
+        if ( is_admin() && ! wp_doing_ajax() ) {
+            return $price_html;
+        }
+        if ( ! function_exists( 'is_product' ) || ! is_product() ) {
+            return $price_html;
+        }
+        if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+            return $price_html;
+        }
+        if ( ! shikkosa_is_newproducts_product_local( $product ) ) {
+            return $price_html;
+        }
+
+        list( $regular, $sale ) = shikkosa_normalized_raw_price_pair_local( (int) $product->get_id() );
+        $has_real_discount = ( $regular > 0 && $sale > 0 && $sale < $regular );
+        if ( $has_real_discount ) {
+            return $price_html;
+        }
+
+        if ( $regular > 0 ) {
+            return wc_price( $regular );
+        }
+
+        return $price_html;
+    },
+    20,
+    2
+);
+
 function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
     if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
         return $price;
