@@ -1187,12 +1187,6 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
                 return $native_rates;
             }
         }
-
-        $settings = shikkosa_sdek_settings();
-        $custom_rates = isset( $settings['custom_rates'] ) && is_array( $settings['custom_rates'] ) ? shikkosa_sdek_sanitize_custom_rates( $settings['custom_rates'] ) : array();
-        if ( ! empty( $custom_rates ) ) {
-            return shikkosa_sdek_build_native_custom_rates( $rates, $settings );
-        }
         return $native_rates;
     }
 
