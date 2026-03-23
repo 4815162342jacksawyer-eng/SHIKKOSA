@@ -136,21 +136,37 @@ function shikkosa_rate_settings_by_instance( $method_id, $instance_id ) {
 
 function shikkosa_apply_instance_meta_to_rates( $rates ) {
     $rates = is_array( $rates ) ? $rates : array();
+    $new_rates = array();
+
     foreach ( $rates as $rate_id => $rate ) {
         if ( ! is_object( $rate ) || ! is_a( $rate, 'WC_Shipping_Rate' ) ) {
+            $new_rates[ $rate_id ] = $rate;
             continue;
         }
 
         $method_id = method_exists( $rate, 'get_method_id' ) ? (string) $rate->get_method_id() : '';
         $instance_id = method_exists( $rate, 'get_instance_id' ) ? (int) $rate->get_instance_id() : 0;
         $settings = shikkosa_rate_settings_by_instance( $method_id, $instance_id );
-        if ( empty( $settings ) ) {
-            continue;
-        }
+        $price_comment = ! empty( $settings ) && isset( $settings['shk_price_comment'] ) ? sanitize_text_field( (string) $settings['shk_price_comment'] ) : '';
+        $delivery_comment = ! empty( $settings ) && isset( $settings['shk_delivery_comment'] ) ? sanitize_text_field( (string) $settings['shk_delivery_comment'] ) : '';
+        $tariff_code = ! empty( $settings ) && isset( $settings['shk_sdek_tariff_code'] ) ? preg_replace( '/[^0-9]/', '', (string) $settings['shk_sdek_tariff_code'] ) : '';
 
-        $price_comment = isset( $settings['shk_price_comment'] ) ? sanitize_text_field( (string) $settings['shk_price_comment'] ) : '';
-        $delivery_comment = isset( $settings['shk_delivery_comment'] ) ? sanitize_text_field( (string) $settings['shk_delivery_comment'] ) : '';
-        $tariff_code = isset( $settings['shk_sdek_tariff_code'] ) ? preg_replace( '/[^0-9]/', '', (string) $settings['shk_sdek_tariff_code'] ) : '';
+        if ( 'official_cdek' === $method_id && '' !== $tariff_code ) {
+            $hay = implode(
+                ' ',
+                array(
+                    (string) $rate_id,
+                    method_exists( $rate, 'get_id' ) ? (string) $rate->get_id() : '',
+                    method_exists( $rate, 'get_label' ) ? (string) $rate->get_label() : '',
+                    function_exists( 'shikkosa_sdek_rate_string' ) ? (string) shikkosa_sdek_rate_string( $rate ) : '',
+                )
+            );
+            $ids = function_exists( 'shikkosa_sdek_extract_tariff_ids_from_value' ) ? shikkosa_sdek_extract_tariff_ids_from_value( $hay ) : array();
+
+            if ( ! empty( $ids ) && ! in_array( (int) $tariff_code, $ids, true ) ) {
+                continue;
+            }
+        }
 
         if ( '' !== $price_comment ) {
             $rate->add_meta_data( '_shk_price_comment', $price_comment, true );
@@ -162,24 +178,21 @@ function shikkosa_apply_instance_meta_to_rates( $rates ) {
             $rate->add_meta_data( '_shk_sdek_tariff_code', $tariff_code, true );
         }
 
-        if ( 'official_cdek' === $method_id && '' !== $tariff_code ) {
-            $new_id = (string) $rate_id;
-            if ( false === strpos( $new_id, '__tariff_' ) ) {
-                $new_id .= '__tariff_' . $tariff_code;
-            }
-            if ( $new_id !== (string) $rate_id ) {
-                $rates[ $new_id ] = shikkosa_clone_rate_with_label_and_cost(
-                    $rate,
-                    $new_id,
-                    method_exists( $rate, 'get_label' ) ? (string) $rate->get_label() : '',
-                    method_exists( $rate, 'get_cost' ) ? (float) $rate->get_cost() : 0.0
-                );
-                unset( $rates[ $rate_id ] );
-            }
+        $new_id = (string) $rate_id;
+        if ( 'official_cdek' === $method_id && '' !== $tariff_code && false === strpos( $new_id, '__tariff_' ) ) {
+            $new_id .= '__tariff_' . $tariff_code;
+            $rate = shikkosa_clone_rate_with_label_and_cost(
+                $rate,
+                $new_id,
+                method_exists( $rate, 'get_label' ) ? (string) $rate->get_label() : '',
+                method_exists( $rate, 'get_cost' ) ? (float) $rate->get_cost() : 0.0
+            );
         }
+
+        $new_rates[ $new_id ] = $rate;
     }
 
-    return $rates;
+    return $new_rates;
 }
 
 function shikkosa_sdek_settings() {
