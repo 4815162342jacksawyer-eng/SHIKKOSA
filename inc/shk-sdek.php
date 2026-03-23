@@ -448,12 +448,29 @@ function shikkosa_zone_official_cdek_inline_points( $package ) {
         return $rows;
     }
 
-    $zone = WC_Shipping_Zones::get_zone_matching_package( is_array( $package ) ? $package : array() );
-    if ( ! $zone || ! is_a( $zone, 'WC_Shipping_Zone' ) ) {
-        return $rows;
-    }
+    static $zone_methods_cache = array();
+    $dest = isset( $package['destination'] ) && is_array( $package['destination'] ) ? $package['destination'] : array();
+    $cache_key = md5(
+        wp_json_encode(
+            array(
+                'country'  => isset( $dest['country'] ) ? (string) $dest['country'] : '',
+                'state'    => isset( $dest['state'] ) ? (string) $dest['state'] : '',
+                'postcode' => isset( $dest['postcode'] ) ? (string) $dest['postcode'] : '',
+                'city'     => isset( $dest['city'] ) ? (string) $dest['city'] : '',
+            )
+        )
+    );
 
-    $methods = $zone->get_shipping_methods( true );
+    if ( isset( $zone_methods_cache[ $cache_key ] ) && is_array( $zone_methods_cache[ $cache_key ] ) ) {
+        $methods = $zone_methods_cache[ $cache_key ];
+    } else {
+        $zone = WC_Shipping_Zones::get_zone_matching_package( is_array( $package ) ? $package : array() );
+        if ( ! $zone || ! is_a( $zone, 'WC_Shipping_Zone' ) ) {
+            return $rows;
+        }
+        $methods = $zone->get_shipping_methods( true );
+        $zone_methods_cache[ $cache_key ] = is_array( $methods ) ? $methods : array();
+    }
     if ( ! is_array( $methods ) ) {
         return $rows;
     }
@@ -552,6 +569,78 @@ function shikkosa_append_inline_points_without_source_rate( $rates, $package ) {
     }
 
     return $rates;
+}
+
+function shikkosa_reorder_rates_by_zone_methods( $rates, $package ) {
+    $rates = is_array( $rates ) ? $rates : array();
+    if ( empty( $rates ) || ! class_exists( 'WC_Shipping_Zones' ) || ! method_exists( 'WC_Shipping_Zones', 'get_zone_matching_package' ) ) {
+        return $rates;
+    }
+
+    $zone = WC_Shipping_Zones::get_zone_matching_package( is_array( $package ) ? $package : array() );
+    if ( ! $zone || ! is_a( $zone, 'WC_Shipping_Zone' ) ) {
+        return $rates;
+    }
+    $methods = $zone->get_shipping_methods( true );
+    if ( ! is_array( $methods ) || empty( $methods ) ) {
+        return $rates;
+    }
+
+    $buckets = array();
+    $bucket_order = array();
+    $raw_tail = array();
+
+    foreach ( $rates as $rate_id => $rate ) {
+        if ( ! is_object( $rate ) || ! is_a( $rate, 'WC_Shipping_Rate' ) ) {
+            $raw_tail[ $rate_id ] = $rate;
+            continue;
+        }
+        $method_id = method_exists( $rate, 'get_method_id' ) ? (string) $rate->get_method_id() : '';
+        $instance_id = method_exists( $rate, 'get_instance_id' ) ? (int) $rate->get_instance_id() : 0;
+        $key = $method_id . ':' . $instance_id;
+        if ( ! isset( $buckets[ $key ] ) ) {
+            $buckets[ $key ] = array();
+            $bucket_order[] = $key;
+        }
+        $buckets[ $key ][ $rate_id ] = $rate;
+    }
+
+    $ordered = array();
+    $used_keys = array();
+
+    foreach ( $methods as $method ) {
+        if ( ! $method || ! is_object( $method ) ) {
+            continue;
+        }
+        $enabled = isset( $method->enabled ) ? (string) $method->enabled : 'yes';
+        if ( 'yes' !== $enabled ) {
+            continue;
+        }
+        $method_id = isset( $method->id ) ? (string) $method->id : '';
+        $instance_id = isset( $method->instance_id ) ? (int) $method->instance_id : 0;
+        $key = $method_id . ':' . $instance_id;
+        if ( isset( $buckets[ $key ] ) ) {
+            foreach ( $buckets[ $key ] as $rid => $rate ) {
+                $ordered[ $rid ] = $rate;
+            }
+            $used_keys[ $key ] = true;
+        }
+    }
+
+    foreach ( $bucket_order as $key ) {
+        if ( isset( $used_keys[ $key ] ) ) {
+            continue;
+        }
+        foreach ( $buckets[ $key ] as $rid => $rate ) {
+            $ordered[ $rid ] = $rate;
+        }
+    }
+
+    foreach ( $raw_tail as $rid => $rate ) {
+        $ordered[ $rid ] = $rate;
+    }
+
+    return $ordered;
 }
 
 function shikkosa_sdek_settings() {
@@ -1294,7 +1383,8 @@ add_filter( 'woocommerce_package_rates', 'shikkosa_split_cdek_pickup_rates', 120
 function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     if ( shikkosa_use_native_woo_shipping_mode() ) {
         $native_rates = shikkosa_apply_instance_meta_to_rates( $rates );
-        return shikkosa_append_inline_points_without_source_rate( $native_rates, $package );
+        $native_rates = shikkosa_append_inline_points_without_source_rate( $native_rates, $package );
+        return shikkosa_reorder_rates_by_zone_methods( $native_rates, $package );
     }
 
     $settings = shikkosa_sdek_settings();
