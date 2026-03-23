@@ -2523,11 +2523,25 @@ function shikkosa_sdek_checkout_notes_blocks() {
               var layout = opt.querySelector('.wc-block-components-radio-control__option-layout');
               if (!layout) return;
               var labelGroup = opt.querySelector('.wc-block-components-radio-control__label-group');
+              var labelNode = opt.querySelector('.wc-block-components-radio-control__label');
               var secondary = opt.querySelector('.wc-block-components-radio-control__secondary-label');
               var noteMount = labelGroup || layout;
+              var inlinePrice = opt.querySelector('.shk-sdek-inline-price-comment');
+
+              if (labelGroup && labelNode && secondary) {
+                labelGroup.style.display = 'flex';
+                labelGroup.style.flexWrap = 'wrap';
+                labelGroup.style.rowGap = '2px';
+                labelGroup.style.columnGap = '8px';
+                labelNode.style.flex = '0 0 100%';
+                secondary.style.display = 'inline-flex';
+                secondary.style.alignItems = 'baseline';
+                secondary.style.margin = '0';
+              }
 
               var existing = opt.querySelector('.shk-sdek-note');
               if (!noteData) {
+                if (inlinePrice) inlinePrice.remove();
                 if (existing) existing.innerHTML = '';
                 return;
               }
@@ -2544,12 +2558,24 @@ function shikkosa_sdek_checkout_notes_blocks() {
               var price = String(noteData.price || '').trim();
               var delivery = String(noteData.delivery || '').trim();
               if (!price && !delivery) {
+                if (inlinePrice) inlinePrice.remove();
                 existing.innerHTML = '';
                 return;
               }
 
+              if (secondary) {
+                if (!inlinePrice) {
+                  inlinePrice = document.createElement('span');
+                  inlinePrice.className = 'shk-sdek-inline-price-comment';
+                  inlinePrice.style.marginLeft = '8px';
+                  secondary.appendChild(inlinePrice);
+                }
+                inlinePrice.textContent = price || '';
+                inlinePrice.style.display = price ? 'inline' : 'none';
+              }
+
               var html = '';
-              if (price) {
+              if (!secondary && price) {
                 html += '<div class="shk-sdek-note__price">' + price.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
               }
               if (delivery) {
@@ -2670,8 +2696,21 @@ function shikkosa_sdek_checkout_notes_blocks() {
           var layout = opt.querySelector('.wc-block-components-radio-control__option-layout');
           if (!layout) return;
           var labelGroup = opt.querySelector('.wc-block-components-radio-control__label-group');
+          var labelNode = opt.querySelector('.wc-block-components-radio-control__label');
           var secondary = opt.querySelector('.wc-block-components-radio-control__secondary-label');
           var noteMount = labelGroup || layout;
+          var inlinePrice = opt.querySelector('.shk-sdek-inline-price-comment');
+
+          if (labelGroup && labelNode && secondary) {
+            labelGroup.style.display = 'flex';
+            labelGroup.style.flexWrap = 'wrap';
+            labelGroup.style.rowGap = '2px';
+            labelGroup.style.columnGap = '8px';
+            labelNode.style.flex = '0 0 100%';
+            secondary.style.display = 'inline-flex';
+            secondary.style.alignItems = 'baseline';
+            secondary.style.margin = '0';
+          }
 
           var existing = opt.querySelector('.shk-sdek-note');
           if (!existing) {
@@ -2687,12 +2726,24 @@ function shikkosa_sdek_checkout_notes_blocks() {
           var delivery = (noteData.delivery || '').trim();
 
           if (!price && !delivery) {
+            if (inlinePrice) inlinePrice.remove();
             existing.innerHTML = '';
             return;
           }
 
+          if (secondary) {
+            if (!inlinePrice) {
+              inlinePrice = document.createElement('span');
+              inlinePrice.className = 'shk-sdek-inline-price-comment';
+              inlinePrice.style.marginLeft = '8px';
+              secondary.appendChild(inlinePrice);
+            }
+            inlinePrice.textContent = price || '';
+            inlinePrice.style.display = price ? 'inline' : 'none';
+          }
+
           var html = '';
-          if (price) {
+          if (!secondary && price) {
             html += '<div class="shk-sdek-note__price">' + price.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
           }
           if (delivery) {
