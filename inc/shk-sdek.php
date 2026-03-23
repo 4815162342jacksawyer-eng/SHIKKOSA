@@ -442,6 +442,118 @@ function shikkosa_apply_instance_meta_to_rates( $rates ) {
     return $new_rates;
 }
 
+function shikkosa_zone_official_cdek_inline_points( $package ) {
+    $rows = array();
+    if ( ! class_exists( 'WC_Shipping_Zones' ) || ! method_exists( 'WC_Shipping_Zones', 'get_zone_matching_package' ) ) {
+        return $rows;
+    }
+
+    $zone = WC_Shipping_Zones::get_zone_matching_package( is_array( $package ) ? $package : array() );
+    if ( ! $zone || ! is_a( $zone, 'WC_Shipping_Zone' ) ) {
+        return $rows;
+    }
+
+    $methods = $zone->get_shipping_methods( true );
+    if ( ! is_array( $methods ) ) {
+        return $rows;
+    }
+
+    foreach ( $methods as $method ) {
+        if ( ! $method || ! is_object( $method ) ) {
+            continue;
+        }
+        $method_id = isset( $method->id ) ? (string) $method->id : '';
+        if ( 'official_cdek' !== $method_id ) {
+            continue;
+        }
+        $enabled = isset( $method->enabled ) ? (string) $method->enabled : 'yes';
+        if ( 'yes' !== $enabled ) {
+            continue;
+        }
+        $instance_id = isset( $method->instance_id ) ? (int) $method->instance_id : 0;
+        if ( $instance_id <= 0 ) {
+            continue;
+        }
+
+        $settings = shikkosa_rate_settings_by_instance( 'official_cdek', $instance_id );
+        $tariff_raw = isset( $settings['shk_sdek_tariff_code'] ) ? (string) $settings['shk_sdek_tariff_code'] : '';
+        $inline_raw = isset( $settings['shk_sdek_inline_points'] ) ? (string) $settings['shk_sdek_inline_points'] : '';
+        if ( '' === trim( $inline_raw ) ) {
+            $inline_raw = $tariff_raw;
+        }
+        $inline_points = shikkosa_parse_inline_sdek_points( $inline_raw );
+        if ( empty( $inline_points ) ) {
+            continue;
+        }
+
+        foreach ( $inline_points as $idx => $point ) {
+            $label = isset( $point['label'] ) ? sanitize_text_field( (string) $point['label'] ) : '';
+            $tariff = isset( $point['tariff_code'] ) ? preg_replace( '/[^0-9]/', '', (string) $point['tariff_code'] ) : '';
+            $price = isset( $point['price'] ) ? trim( (string) $point['price'] ) : '';
+            $price_comment = isset( $point['price_comment'] ) ? sanitize_text_field( (string) $point['price_comment'] ) : '';
+            $delivery_comment = isset( $point['delivery_comment'] ) ? sanitize_text_field( (string) $point['delivery_comment'] ) : '';
+            if ( '' === $label || '' === $tariff ) {
+                continue;
+            }
+            $rows[] = array(
+                'instance_id' => $instance_id,
+                'index' => (int) $idx + 1,
+                'label' => $label,
+                'tariff_code' => $tariff,
+                'price' => $price,
+                'price_comment' => $price_comment,
+                'delivery_comment' => $delivery_comment,
+            );
+        }
+    }
+
+    return $rows;
+}
+
+function shikkosa_append_inline_points_without_source_rate( $rates, $package ) {
+    $rates = is_array( $rates ) ? $rates : array();
+
+    foreach ( $rates as $rid => $rate ) {
+        if ( false !== strpos( (string) $rid, '__shk_point_' ) ) {
+            return $rates;
+        }
+    }
+
+    $rows = shikkosa_zone_official_cdek_inline_points( $package );
+    if ( empty( $rows ) ) {
+        return $rates;
+    }
+
+    foreach ( $rows as $row ) {
+        $instance_id = isset( $row['instance_id'] ) ? (int) $row['instance_id'] : 0;
+        $idx = isset( $row['index'] ) ? (int) $row['index'] : 1;
+        $label = isset( $row['label'] ) ? (string) $row['label'] : '';
+        $tariff = isset( $row['tariff_code'] ) ? (string) $row['tariff_code'] : '';
+        $price_raw = isset( $row['price'] ) ? trim( (string) $row['price'] ) : '';
+        $cost = ( '' !== $price_raw && is_numeric( $price_raw ) ) ? max( 0.0, (float) $price_raw ) : 0.0;
+        if ( '' === $label || '' === $tariff ) {
+            continue;
+        }
+
+        $new_id = 'official_cdek:' . $instance_id . '__shk_point_' . $idx . '__tariff_' . $tariff;
+        $rate = shikkosa_sdek_synthetic_rate( $new_id, $label, $cost, 'official_cdek', $instance_id );
+        $rate->add_meta_data( '_shk_sdek_tariff_code', $tariff, true );
+
+        $price_comment = isset( $row['price_comment'] ) ? trim( (string) $row['price_comment'] ) : '';
+        $delivery_comment = isset( $row['delivery_comment'] ) ? trim( (string) $row['delivery_comment'] ) : '';
+        if ( '' !== $price_comment ) {
+            $rate->add_meta_data( '_shk_price_comment', $price_comment, true );
+        }
+        if ( '' !== $delivery_comment ) {
+            $rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
+        }
+
+        $rates[ $new_id ] = $rate;
+    }
+
+    return $rates;
+}
+
 function shikkosa_sdek_settings() {
     $defaults = shikkosa_sdek_settings_default();
     $saved_raw = get_option( 'shikkosa_sdek_settings', null );
@@ -1182,12 +1294,7 @@ add_filter( 'woocommerce_package_rates', 'shikkosa_split_cdek_pickup_rates', 120
 function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     if ( shikkosa_use_native_woo_shipping_mode() ) {
         $native_rates = shikkosa_apply_instance_meta_to_rates( $rates );
-        foreach ( $native_rates as $rid => $r ) {
-            if ( false !== strpos( (string) $rid, '__shk_point_' ) ) {
-                return $native_rates;
-            }
-        }
-        return $native_rates;
+        return shikkosa_append_inline_points_without_source_rate( $native_rates, $package );
     }
 
     $settings = shikkosa_sdek_settings();
