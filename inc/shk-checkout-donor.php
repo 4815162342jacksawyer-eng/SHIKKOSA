@@ -518,9 +518,53 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (root.dataset.shkCdekBootstrapDone === '1') return;
         var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
         if (!shippingOptions) return;
-        if (!getCurrentWooShippingCity(root) && !hasAnyCdekShippingOption(root)) {
-          applySoftFallbackCity(root, 'Москва');
+
+        function finalizeBootstrap(city) {
+          var c = String(city || '').trim();
+          if (c) {
+            syncWooShippingCity(root, c);
+          } else if (!getCurrentWooShippingCity(root)) {
+            applySoftFallbackCity(root, 'Москва');
+          }
           root.dataset.shkCdekBootstrapDone = '1';
+        }
+
+        function tryGeoBootstrap(onDone) {
+          if (!navigator.geolocation || !window.fetch) {
+            onDone('');
+            return;
+          }
+          navigator.geolocation.getCurrentPosition(function(pos){
+            var lat = pos && pos.coords ? pos.coords.latitude : null;
+            var lon = pos && pos.coords ? pos.coords.longitude : null;
+            if (lat === null || lon === null) {
+              onDone('');
+              return;
+            }
+            var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=ru&lat=' + encodeURIComponent(String(lat)) + '&lon=' + encodeURIComponent(String(lon));
+            fetch(url, { method: 'GET', credentials: 'omit' })
+              .then(function(r){ return r && r.ok ? r.json() : null; })
+              .then(function(data){
+                var addr = data && data.address ? data.address : {};
+                var raw = [
+                  addr.city,
+                  addr.town,
+                  addr.village,
+                  addr.municipality,
+                  addr.county,
+                  addr.state_district,
+                  addr.state
+                ].filter(Boolean).join(', ');
+                onDone(extractCityFromText(raw));
+              })
+              .catch(function(){ onDone(''); });
+          }, function(){
+            onDone('');
+          }, { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 });
+        }
+
+        if (!getCurrentWooShippingCity(root) && !hasAnyCdekShippingOption(root)) {
+          tryGeoBootstrap(finalizeBootstrap);
           return;
         }
 
@@ -541,7 +585,8 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (!isCdekLike) return;
 
         if (!getCurrentWooShippingCity(root)) {
-          applySoftFallbackCity(root, 'Москва');
+          tryGeoBootstrap(finalizeBootstrap);
+        } else {
           root.dataset.shkCdekBootstrapDone = '1';
         }
       }
