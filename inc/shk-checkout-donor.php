@@ -126,9 +126,8 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             selectedHay.indexOf('пвз') !== -1;
 
           if (!shkFallbackCityApplied && isCdekLike && !getCurrentWooShippingCity(root)) {
-            // Stable mode: do not mutate city automatically.
-            // CDEK widget should resolve city by user's explicit selection.
-            dbg('stable mode: fallback city sync skipped');
+            // Soft one-time bootstrap for CDEK map initialization.
+            applySoftCityFallback(root, 'Москва');
             shkFallbackCityApplied = true;
           }
         } else {
@@ -136,6 +135,20 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           shippingFields.removeAttribute('aria-disabled');
           shippingFields.style.removeProperty('display');
         }
+      }
+
+      function applySoftCityFallback(root, cityValue) {
+        var value = String(cityValue || '').trim();
+        if (!value || !root) return;
+
+        var cityInput = root.querySelector('#shipping-city, input[name="shipping_city"], input[name="shipping-city"], .wc-block-components-address-form__city input');
+        if (!cityInput) return;
+        if (String(cityInput.value || '').trim()) return;
+
+        cityInput.value = value;
+        cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+        cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+        dbg('soft fallback city applied', value);
       }
 
       function getCurrentWooShippingCity(root) {
