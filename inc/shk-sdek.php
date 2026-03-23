@@ -2551,6 +2551,11 @@ function shikkosa_sdek_checkout_notes_blocks() {
                 existing.className = 'shk-sdek-note';
                 noteMount.appendChild(existing);
               }
+              existing.style.margin = '0';
+              existing.style.padding = '0';
+              existing.style.textAlign = 'left';
+              existing.style.width = '100%';
+              existing.style.display = 'block';
               if (secondary && existing.previousElementSibling !== secondary) {
                 secondary.insertAdjacentElement('afterend', existing);
               }
@@ -2567,7 +2572,9 @@ function shikkosa_sdek_checkout_notes_blocks() {
                 if (!inlinePrice) {
                   inlinePrice = document.createElement('span');
                   inlinePrice.className = 'shk-sdek-inline-price-comment';
-                  inlinePrice.style.marginLeft = '8px';
+                  inlinePrice.style.marginLeft = '0';
+                  inlinePrice.style.paddingLeft = '8px';
+                  inlinePrice.style.textAlign = 'left';
                   secondary.appendChild(inlinePrice);
                 }
                 inlinePrice.textContent = price || '';
@@ -2579,7 +2586,7 @@ function shikkosa_sdek_checkout_notes_blocks() {
                 html += '<div class="shk-sdek-note__price">' + price.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
               }
               if (delivery) {
-                html += '<div class="shk-sdek-note__delivery">' + delivery.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+                html += '<div class="shk-sdek-note__delivery" style="margin:0;padding:0;text-align:left;">' + delivery.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
               }
               existing.innerHTML = html;
             });
@@ -2718,6 +2725,11 @@ function shikkosa_sdek_checkout_notes_blocks() {
             existing.className = 'shk-sdek-note';
             noteMount.appendChild(existing);
           }
+          existing.style.margin = '0';
+          existing.style.padding = '0';
+          existing.style.textAlign = 'left';
+          existing.style.width = '100%';
+          existing.style.display = 'block';
           if (secondary && existing.previousElementSibling !== secondary) {
             secondary.insertAdjacentElement('afterend', existing);
           }
@@ -2735,7 +2747,9 @@ function shikkosa_sdek_checkout_notes_blocks() {
             if (!inlinePrice) {
               inlinePrice = document.createElement('span');
               inlinePrice.className = 'shk-sdek-inline-price-comment';
-              inlinePrice.style.marginLeft = '8px';
+              inlinePrice.style.marginLeft = '0';
+              inlinePrice.style.paddingLeft = '8px';
+              inlinePrice.style.textAlign = 'left';
               secondary.appendChild(inlinePrice);
             }
             inlinePrice.textContent = price || '';
@@ -2747,7 +2761,7 @@ function shikkosa_sdek_checkout_notes_blocks() {
             html += '<div class="shk-sdek-note__price">' + price.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
           }
           if (delivery) {
-            html += '<div class="shk-sdek-note__delivery">' + delivery.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            html += '<div class="shk-sdek-note__delivery" style="margin:0;padding:0;text-align:left;">' + delivery.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
           }
           existing.innerHTML = html;
         });
