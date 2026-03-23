@@ -125,8 +125,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             selectedHay.indexOf('пвз') !== -1;
 
           if (!shkFallbackCityApplied && isCdekLike && !getCurrentWooShippingCity(root)) {
-            dbg('fallback city -> Москва (once)');
-            syncWooShippingCity(root, 'Москва');
+            dbg('fallback city disabled to avoid shipping list reset');
             shkFallbackCityApplied = true;
           }
         } else {
@@ -274,38 +273,9 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       function bindCdekMapCitySync(root) {
         if (!root) return;
-        if (root.dataset.shkCdekSelectionSyncBound === '1') return;
-
-        var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
-        if (!shippingOptions) return;
-
-        shippingOptions.addEventListener('click', function(evt){
-          var t = evt.target;
-          if (!t) return;
-          var selected = shippingOptions.querySelector('.wc-block-components-radio-control__input:checked');
-          var selectedOption = selected ? selected.closest('.wc-block-components-radio-control__option') : null;
-          var selectedHay = (
-            String(selected ? selected.value || '' : '') + ' ' +
-            String(selectedOption ? selectedOption.textContent || '' : '')
-          ).toLowerCase();
-          var isCdekLike =
-            selectedHay.indexOf('cdek') !== -1 ||
-            selectedHay.indexOf('sdek') !== -1 ||
-            selectedHay.indexOf('сдэк') !== -1 ||
-            selectedHay.indexOf('пвз') !== -1;
-          if (!isCdekLike) {
-            dbg('shipping option click: non-CDEK, no city sync');
-            return;
-          }
-
-          dbg('shipping option click: CDEK-like selected, schedule city extraction');
-
-          // Sync only after actual selection interactions in widget UI.
-          window.setTimeout(function(){ attemptSyncCityFromCdekSelection(root); }, 140);
-          window.setTimeout(function(){ attemptSyncCityFromCdekSelection(root); }, 900);
-        }, true);
-
-        root.dataset.shkCdekSelectionSyncBound = '1';
+        // Disabled: any auto city sync here causes expensive checkout recalculation
+        // and may reset/trim available shipping methods.
+        return;
       }
 
       function enforceAddressFieldVisibility(root) {
