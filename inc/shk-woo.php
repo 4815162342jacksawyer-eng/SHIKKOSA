@@ -3201,10 +3201,12 @@ add_action(
         $sale = (string) $product->get_sale_price();
 
         echo '<div class="shk-inline-grid">';
-        echo '<label>Название<input type="text" class="shk-inline-input" data-field="title" value="' . esc_attr( $title ) . '" /></label>';
-        echo '<label>SKU<input type="text" class="shk-inline-input" data-field="sku" value="' . esc_attr( $sku ) . '" /></label>';
+        echo '<label class="shk-inline-full">Название<input type="text" class="shk-inline-input" data-field="title" value="' . esc_attr( $title ) . '" /></label>';
+        echo '<label class="shk-inline-full">SKU<input type="text" class="shk-inline-input" data-field="sku" value="' . esc_attr( $sku ) . '" /></label>';
+        echo '<div class="shk-inline-price-row">';
         echo '<label>Regular<input type="text" class="shk-inline-input" data-field="regular_price" value="' . esc_attr( $regular ) . '" /></label>';
         echo '<label>Sale<input type="text" class="shk-inline-input" data-field="sale_price" value="' . esc_attr( $sale ) . '" /></label>';
+        echo '</div>';
         echo '<span class="shk-inline-status" aria-hidden="true"></span>';
         echo '</div>';
     },
@@ -3244,8 +3246,8 @@ add_action(
             }
             .post-type-product .wp-list-table .shk-inline-grid {
                 display: grid;
-                grid-template-columns: repeat(2, minmax(90px, 1fr));
-                gap: 4px 6px;
+                grid-template-columns: 1fr;
+                gap: 4px;
                 align-items: end;
             }
             .post-type-product .wp-list-table .shk-inline-grid label {
@@ -3253,6 +3255,15 @@ add_action(
                 gap: 2px;
                 font-size: 10px;
                 color: #50575e;
+            }
+            .post-type-product .wp-list-table .shk-inline-grid .shk-inline-full {
+                grid-column: 1 / -1;
+            }
+            .post-type-product .wp-list-table .shk-inline-price-row {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(78px, 1fr));
+                gap: 6px;
+                align-items: end;
             }
             .post-type-product .wp-list-table .shk-inline-input {
                 width: 100%;
