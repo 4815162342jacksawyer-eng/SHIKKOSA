@@ -108,10 +108,20 @@ function shikkosa_shipping_instance_comment_fields_with_tariff( $fields ) {
     if ( ! isset( $fields['shk_sdek_tariff_code'] ) ) {
         $fields['shk_sdek_tariff_code'] = array(
             'title'       => 'Код тарифа CDEK',
-            'type'        => 'text',
-            'description' => 'Опционально. Только цифры.',
+            'type'        => 'textarea',
+            'description' => 'Один тариф: 138. Несколько SHK пунктов: по 1 строке "Название | КодТарифа | Цена | КомментКЦене | КомментПоСроку".',
             'default'     => '',
             'desc_tip'    => true,
+        );
+    }
+
+    if ( ! isset( $fields['shk_sdek_inline_points'] ) ) {
+        $fields['shk_sdek_inline_points'] = array(
+            'title'       => 'SHK пункты (инлайн)',
+            'type'        => 'textarea',
+            'description' => 'По 1 строке на пункт: Название | КодТарифа | Цена | КомментКЦене | КомментПоСроку',
+            'default'     => '',
+            'desc_tip'    => false,
         );
     }
 
@@ -134,9 +144,201 @@ function shikkosa_rate_settings_by_instance( $method_id, $instance_id ) {
     return is_array( $settings ) ? $settings : array();
 }
 
+function shikkosa_parse_inline_sdek_points( $raw ) {
+    if ( ! is_scalar( $raw ) ) {
+        return array();
+    }
+    $text = trim( (string) $raw );
+    if ( '' === $text ) {
+        return array();
+    }
+
+    $lines = preg_split( '/\s*;;\s*|\R+/u', $text );
+    $out = array();
+    foreach ( (array) $lines as $line ) {
+        $line = trim( (string) $line );
+        if ( '' === $line ) {
+            continue;
+        }
+
+        $parts = array_map( 'trim', explode( '|', $line ) );
+        $label = isset( $parts[0] ) ? sanitize_text_field( (string) $parts[0] ) : '';
+        $tariff_code = isset( $parts[1] ) ? preg_replace( '/[^0-9]/', '', (string) $parts[1] ) : '';
+        $price_raw = isset( $parts[2] ) ? trim( (string) $parts[2] ) : '';
+        $price_comment = isset( $parts[3] ) ? sanitize_text_field( (string) $parts[3] ) : '';
+        $delivery_comment = isset( $parts[4] ) ? sanitize_text_field( (string) $parts[4] ) : '';
+
+        if ( '' === $label ) {
+            continue;
+        }
+        if ( '' === $tariff_code ) {
+            continue;
+        }
+
+        $price = '';
+        if ( '' !== $price_raw && is_numeric( $price_raw ) ) {
+            $price = (string) wc_format_decimal( (string) $price_raw );
+        }
+
+        $out[] = array(
+            'label' => $label,
+            'tariff_code' => $tariff_code,
+            'price' => $price,
+            'price_comment' => $price_comment,
+            'delivery_comment' => $delivery_comment,
+        );
+    }
+
+    return $out;
+}
+
+add_action( 'admin_footer', 'shikkosa_sdek_render_inline_points_builder_js', 120 );
+function shikkosa_sdek_render_inline_points_builder_js() {
+    if ( ! is_admin() ) {
+        return;
+    }
+    $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+    $tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : '';
+    if ( 'wc-settings' !== $page || 'shipping' !== $tab ) {
+        return;
+    }
+    ?>
+    <script>
+    (function(){
+      function parseRawToRows(raw) {
+        var text = String(raw || '').trim();
+        if (!text) return [];
+        var parts = text.split(/\s*;;\s*|\n+/).map(function(v){ return String(v || '').trim(); }).filter(Boolean);
+        return parts.map(function(line){
+          var p = line.split('|').map(function(v){ return String(v || '').trim(); });
+          return {
+            label: p[0] || '',
+            tariff: (p[1] || '').replace(/\D+/g, ''),
+            price: p[2] || '',
+            priceComment: p[3] || '',
+            deliveryComment: p[4] || ''
+          };
+        });
+      }
+
+      function serializeRows(rows) {
+        var clean = rows.filter(function(r){
+          return String(r.label || '').trim() && String(r.tariff || '').trim();
+        });
+        return clean.map(function(r){
+          return [
+            String(r.label || '').trim(),
+            String(r.tariff || '').replace(/\D+/g, ''),
+            String(r.price || '').trim(),
+            String(r.priceComment || '').trim(),
+            String(r.deliveryComment || '').trim()
+          ].join(' | ');
+        }).join(' ;; ');
+      }
+
+      function rowTpl(row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td><input type="text" class="shk-p-label" style="width:100%" /></td>' +
+          '<td><input type="text" class="shk-p-tariff" inputmode="numeric" pattern="[0-9]*" style="width:100%" /></td>' +
+          '<td><input type="text" class="shk-p-price" style="width:100%" /></td>' +
+          '<td><input type="text" class="shk-p-pc" style="width:100%" /></td>' +
+          '<td><input type="text" class="shk-p-dc" style="width:100%" /></td>' +
+          '<td><button type="button" class="button-link-delete shk-p-del">Удалить</button></td>';
+        tr.querySelector('.shk-p-label').value = row.label || '';
+        tr.querySelector('.shk-p-tariff').value = row.tariff || '';
+        tr.querySelector('.shk-p-price').value = row.price || '';
+        tr.querySelector('.shk-p-pc').value = row.priceComment || '';
+        tr.querySelector('.shk-p-dc').value = row.deliveryComment || '';
+        return tr;
+      }
+
+      function initBuilder() {
+        var input = document.querySelector(
+          'input[name*=\"shk_sdek_tariff_code\"], textarea[name*=\"shk_sdek_tariff_code\"], #woocommerce_official_cdek_shk_sdek_tariff_code'
+        );
+        if (!input || input.dataset.shkBuilderReady === '1') return;
+        input.dataset.shkBuilderReady = '1';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'shk-inline-points-builder';
+        wrap.style.marginTop = '10px';
+        wrap.innerHTML =
+          '<p style="margin:0 0 8px 0;font-size:12px;color:#646970">SHK пункты: Название + тариф + цена + комментарии. Работает в этом варианте зоны доставки.</p>' +
+          '<table class="widefat striped" style="max-width:1100px">' +
+          '<thead><tr><th>Название</th><th>Тариф</th><th>Цена</th><th>Коммент. к цене</th><th>Коммент. к доставке</th><th></th></tr></thead>' +
+          '<tbody></tbody></table>' +
+          '<p style="margin-top:8px"><button type="button" class="button button-secondary shk-p-add">+ Добавить пункт</button></p>';
+
+        input.insertAdjacentElement('afterend', wrap);
+        input.style.display = 'none';
+
+        var tbody = wrap.querySelector('tbody');
+        var addBtn = wrap.querySelector('.shk-p-add');
+
+        function collectRows() {
+          var rows = [];
+          tbody.querySelectorAll('tr').forEach(function(tr){
+            rows.push({
+              label: (tr.querySelector('.shk-p-label') || {}).value || '',
+              tariff: (tr.querySelector('.shk-p-tariff') || {}).value || '',
+              price: (tr.querySelector('.shk-p-price') || {}).value || '',
+              priceComment: (tr.querySelector('.shk-p-pc') || {}).value || '',
+              deliveryComment: (tr.querySelector('.shk-p-dc') || {}).value || ''
+            });
+          });
+          return rows;
+        }
+
+        function syncToInput() {
+          input.value = serializeRows(collectRows());
+        }
+
+        function appendRow(data) {
+          var tr = rowTpl(data || {});
+          tbody.appendChild(tr);
+          tr.querySelectorAll('input').forEach(function(el){
+            el.addEventListener('input', syncToInput);
+          });
+          var del = tr.querySelector('.shk-p-del');
+          if (del) {
+            del.addEventListener('click', function(){
+              tr.remove();
+              syncToInput();
+            });
+          }
+          syncToInput();
+        }
+
+        var existing = parseRawToRows(input.value || '');
+        if (existing.length) {
+          existing.forEach(appendRow);
+        } else {
+          var onlyDigits = String(input.value || '').trim().match(/^\d+$/);
+          if (onlyDigits) {
+            appendRow({ label: '', tariff: onlyDigits[0], price: '', priceComment: '', deliveryComment: '' });
+          }
+        }
+
+        addBtn.addEventListener('click', function(){
+          appendRow({});
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBuilder);
+      } else {
+        initBuilder();
+      }
+    })();
+    </script>
+    <?php
+}
+
 function shikkosa_apply_instance_meta_to_rates( $rates ) {
     $rates = is_array( $rates ) ? $rates : array();
     $new_rates = array();
+    $expanded_instances = array();
 
     foreach ( $rates as $rate_id => $rate ) {
         if ( ! is_object( $rate ) || ! is_a( $rate, 'WC_Shipping_Rate' ) ) {
@@ -149,7 +351,52 @@ function shikkosa_apply_instance_meta_to_rates( $rates ) {
         $settings = shikkosa_rate_settings_by_instance( $method_id, $instance_id );
         $price_comment = ! empty( $settings ) && isset( $settings['shk_price_comment'] ) ? sanitize_text_field( (string) $settings['shk_price_comment'] ) : '';
         $delivery_comment = ! empty( $settings ) && isset( $settings['shk_delivery_comment'] ) ? sanitize_text_field( (string) $settings['shk_delivery_comment'] ) : '';
-        $tariff_code = ! empty( $settings ) && isset( $settings['shk_sdek_tariff_code'] ) ? preg_replace( '/[^0-9]/', '', (string) $settings['shk_sdek_tariff_code'] ) : '';
+        $tariff_raw = ! empty( $settings ) && isset( $settings['shk_sdek_tariff_code'] ) ? (string) $settings['shk_sdek_tariff_code'] : '';
+        $inline_raw = ! empty( $settings ) && isset( $settings['shk_sdek_inline_points'] ) ? (string) $settings['shk_sdek_inline_points'] : '';
+        if ( '' === trim( $inline_raw ) ) {
+            $inline_raw = $tariff_raw;
+        }
+        $inline_points = shikkosa_parse_inline_sdek_points( $inline_raw );
+        $tariff_code = preg_replace( '/[^0-9]/', '', $tariff_raw );
+        if ( ! empty( $inline_points ) ) {
+            $tariff_code = '';
+        }
+
+        if ( 'official_cdek' === $method_id && ! empty( $inline_points ) ) {
+            $instance_key = $method_id . ':' . (string) $instance_id;
+            if ( isset( $expanded_instances[ $instance_key ] ) ) {
+                continue;
+            }
+
+            $base_cost = method_exists( $rate, 'get_cost' ) ? (float) $rate->get_cost() : 0.0;
+            foreach ( $inline_points as $idx => $point ) {
+                $p_label = isset( $point['label'] ) ? sanitize_text_field( (string) $point['label'] ) : '';
+                $p_tariff = isset( $point['tariff_code'] ) ? preg_replace( '/[^0-9]/', '', (string) $point['tariff_code'] ) : '';
+                $p_price_comment = isset( $point['price_comment'] ) ? sanitize_text_field( (string) $point['price_comment'] ) : '';
+                $p_delivery_comment = isset( $point['delivery_comment'] ) ? sanitize_text_field( (string) $point['delivery_comment'] ) : '';
+                $p_price_raw = isset( $point['price'] ) ? trim( (string) $point['price'] ) : '';
+
+                if ( '' === $p_label || '' === $p_tariff ) {
+                    continue;
+                }
+                $p_cost = ( '' !== $p_price_raw && is_numeric( $p_price_raw ) ) ? max( 0.0, (float) $p_price_raw ) : $base_cost;
+
+                $suffix = '__shk_point_' . ( (int) $idx + 1 ) . '__tariff_' . $p_tariff;
+                $new_id = (string) $rate_id . $suffix;
+                $new_rate = shikkosa_clone_rate_with_label_and_cost( $rate, $new_id, $p_label, $p_cost );
+                $new_rate->add_meta_data( '_shk_sdek_tariff_code', $p_tariff, true );
+                if ( '' !== $p_price_comment ) {
+                    $new_rate->add_meta_data( '_shk_price_comment', $p_price_comment, true );
+                }
+                if ( '' !== $p_delivery_comment ) {
+                    $new_rate->add_meta_data( '_shk_delivery_comment', $p_delivery_comment, true );
+                }
+                $new_rates[ $new_id ] = $new_rate;
+            }
+
+            $expanded_instances[ $instance_key ] = true;
+            continue;
+        }
 
         if ( 'official_cdek' === $method_id && '' !== $tariff_code ) {
             $hay = implode(
@@ -650,6 +897,78 @@ function shikkosa_sdek_append_custom_rates( $rates, $settings ) {
     return $rates;
 }
 
+function shikkosa_sdek_build_native_custom_rates( $incoming_rates, $settings ) {
+    $incoming_rates = is_array( $incoming_rates ) ? $incoming_rates : array();
+    $settings = is_array( $settings ) ? $settings : array();
+
+    $custom_rates = isset( $settings['custom_rates'] ) && is_array( $settings['custom_rates'] ) ? $settings['custom_rates'] : array();
+    $custom_rates = shikkosa_sdek_sanitize_custom_rates( $custom_rates );
+    if ( empty( $custom_rates ) ) {
+        return $incoming_rates;
+    }
+
+    $out = array();
+    $first_cdek_source = null;
+
+    foreach ( $incoming_rates as $rate_id => $rate ) {
+        if ( ! is_object( $rate ) || ! is_a( $rate, 'WC_Shipping_Rate' ) ) {
+            $out[ $rate_id ] = $rate;
+            continue;
+        }
+
+        if ( shikkosa_is_cdek_rate( $rate ) ) {
+            if ( null === $first_cdek_source ) {
+                $first_cdek_source = $rate;
+            }
+            continue;
+        }
+
+        $out[ $rate_id ] = $rate;
+    }
+
+    foreach ( $custom_rates as $idx => $row ) {
+        if ( 'yes' !== (string) ( $row['enabled'] ?? 'yes' ) ) {
+            continue;
+        }
+
+        $label = trim( (string) ( $row['label'] ?? '' ) );
+        if ( '' === $label ) {
+            continue;
+        }
+
+        $price_raw = trim( (string) ( $row['price'] ?? '' ) );
+        $cost = ( '' !== $price_raw && is_numeric( $price_raw ) ) ? max( 0.0, (float) $price_raw ) : 0.0;
+        $tariff_code = isset( $row['tariff_code'] ) ? preg_replace( '/[^0-9]/', '', (string) $row['tariff_code'] ) : '';
+
+        $id_base = 'shk_custom_' . ( (int) $idx + 1 );
+        $new_id = $id_base . ( '' !== $tariff_code ? '__tariff_' . $tariff_code : '' );
+
+        if ( '' !== $tariff_code ) {
+            if ( $first_cdek_source && is_a( $first_cdek_source, 'WC_Shipping_Rate' ) ) {
+                $rate = shikkosa_clone_rate_with_label_and_cost( $first_cdek_source, $new_id, $label, $cost );
+            } else {
+                $rate = shikkosa_sdek_synthetic_rate( $new_id, $label, $cost, 'official_cdek', 0 );
+            }
+            $rate->add_meta_data( '_shk_sdek_tariff_code', $tariff_code, true );
+        } else {
+            $rate = shikkosa_sdek_synthetic_rate( $new_id, $label, $cost, 'shk_manual_delivery', 0 );
+        }
+
+        $price_comment = trim( (string) ( $row['price_comment'] ?? '' ) );
+        $delivery_comment = trim( (string) ( $row['delivery_comment'] ?? '' ) );
+        if ( '' !== $price_comment ) {
+            $rate->add_meta_data( '_shk_price_comment', $price_comment, true );
+        }
+        if ( '' !== $delivery_comment ) {
+            $rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
+        }
+
+        $out[ $new_id ] = $rate;
+    }
+
+    return $out;
+}
+
 function shikkosa_sdek_build_prerates_without_address( $rates, $settings ) {
     $title_map = shikkosa_sdek_profile_titles();
     $active_profiles = shikkosa_sdek_detect_active_general_profiles();
@@ -862,7 +1181,19 @@ function shikkosa_sdek_build_static_rates_from_settings( $rates, $settings ) {
 add_filter( 'woocommerce_package_rates', 'shikkosa_split_cdek_pickup_rates', 120, 2 );
 function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     if ( shikkosa_use_native_woo_shipping_mode() ) {
-        return shikkosa_apply_instance_meta_to_rates( $rates );
+        $native_rates = shikkosa_apply_instance_meta_to_rates( $rates );
+        foreach ( $native_rates as $rid => $r ) {
+            if ( false !== strpos( (string) $rid, '__shk_point_' ) ) {
+                return $native_rates;
+            }
+        }
+
+        $settings = shikkosa_sdek_settings();
+        $custom_rates = isset( $settings['custom_rates'] ) && is_array( $settings['custom_rates'] ) ? shikkosa_sdek_sanitize_custom_rates( $settings['custom_rates'] ) : array();
+        if ( ! empty( $custom_rates ) ) {
+            return shikkosa_sdek_build_native_custom_rates( $rates, $settings );
+        }
+        return $native_rates;
     }
 
     $settings = shikkosa_sdek_settings();
