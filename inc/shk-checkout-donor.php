@@ -125,7 +125,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             selectedHay.indexOf('пвз') !== -1;
 
           if (!shkFallbackCityApplied && isCdekLike && !getCurrentWooShippingCity(root)) {
-            dbg('fallback city disabled to avoid shipping list reset');
+            applySoftFallbackCity(root, 'Москва');
             shkFallbackCityApplied = true;
           }
         } else {
@@ -159,6 +159,19 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
 
         return city;
+      }
+
+      function applySoftFallbackCity(root, cityValue) {
+        if (!root) return;
+        var value = String(cityValue || '').trim();
+        if (!value) return;
+
+        var cityInput = root.querySelector('#shipping-city, input[name="shipping_city"], input[name="shipping-city"], .wc-block-components-address-form__city input');
+        if (!cityInput) return;
+        if (String(cityInput.value || '').trim()) return;
+
+        cityInput.value = value;
+        cityInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
 
       function syncWooShippingCity(root, cityValue) {
