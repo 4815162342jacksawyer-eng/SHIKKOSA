@@ -14,6 +14,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       if (!document.body.classList.contains('woocommerce-checkout')) return;
       var shkLastSyncedCity = '';
       var shkFallbackCityApplied = false;
+      var shkStableShippingMode = true;
       var shkDebug = {
         enabled: false,
         prefix: '[SHK checkout]'
@@ -125,8 +126,9 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             selectedHay.indexOf('пвз') !== -1;
 
           if (!shkFallbackCityApplied && isCdekLike && !getCurrentWooShippingCity(root)) {
-            dbg('fallback city -> Москва (once)');
-            syncWooShippingCity(root, 'Москва');
+            // Stable mode: do not mutate city automatically.
+            // CDEK widget should resolve city by user's explicit selection.
+            dbg('stable mode: fallback city sync skipped');
             shkFallbackCityApplied = true;
           }
         } else {
@@ -273,55 +275,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       }
 
       function bindCdekMapCitySync(root) {
-        if (!root) return;
-
-        var selectors = [
-          '.wc-block-checkout__shipping-option input[type="search"]',
-          '.wc-block-checkout__shipping-option input[placeholder*="оиск"]',
-          '.wc-block-checkout__shipping-option input[placeholder*="Поиск"]',
-          '.wc-block-checkout__shipping-option input[placeholder*="search"]',
-          '.wc-block-checkout__shipping-option input[placeholder*="Search"]'
-        ];
-
-        var searchInputs = [];
-        selectors.forEach(function(sel) {
-          root.querySelectorAll(sel).forEach(function(el) {
-            if (searchInputs.indexOf(el) === -1) searchInputs.push(el);
-          });
-        });
-        if (!searchInputs.length) return;
-
-        searchInputs.forEach(function(searchInput) {
-          if (searchInput.dataset.shkCdekCityBound === '1') return;
-
-          searchInput.addEventListener('focus', function() {
-            window.__shkActiveCdekSearchInput = searchInput;
-          });
-
-          searchInput.dataset.shkCdekCityBound = '1';
-        });
-
-        if (document && !document.body.dataset.shkCdekSuggestGlobalBound) {
-          document.addEventListener('click', function(evt) {
-            var activeInput = window.__shkActiveCdekSearchInput || null;
-            if (!activeInput) return;
-            var t = evt.target;
-            if (!t) return;
-
-            var suggestionNode = t.closest('[role="option"], [role="listbox"] *, .autocomplete-suggestion, .suggest-item');
-            if (!suggestionNode) return;
-
-            window.setTimeout(function() {
-              var raw = String(activeInput.value || '').trim();
-              if (!raw || raw.length < 2) return;
-              var normalized = raw.replace(/\s+/g, ' ');
-              var city = normalized.split(',')[0].trim();
-              if (!city) city = normalized;
-              syncWooShippingCity(root, city);
-            }, 80);
-          }, true);
-          document.body.dataset.shkCdekSuggestGlobalBound = '1';
-        }
+        if (!root || shkStableShippingMode) return;
       }
 
       function enforceAddressFieldVisibility(root) {
