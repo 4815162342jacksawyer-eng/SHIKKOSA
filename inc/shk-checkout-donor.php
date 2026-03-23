@@ -255,6 +255,19 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         return city;
       }
 
+      function isRegionLikeChunk(chunk) {
+        var s = String(chunk || '').toLowerCase();
+        if (!s) return true;
+        return (
+          s.indexOf('област') !== -1 ||
+          s.indexOf('край') !== -1 ||
+          s.indexOf('республика') !== -1 ||
+          s.indexOf('район') !== -1 ||
+          s.indexOf('округ') !== -1 ||
+          s.indexOf('россия') !== -1
+        );
+      }
+
       function extractCityFromCdekFields(root) {
         if (!root) return '';
         var candidates = [];
@@ -270,6 +283,18 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
         for (var i = 0; i < candidates.length; i++) {
           var text = String(candidates[i] || '');
+          if (text.indexOf(',') !== -1) {
+            var chunks = text.split(',').map(function(v){ return normalizeCityName(v); }).filter(Boolean);
+            for (var c = chunks.length - 1; c >= 0; c--) {
+              var ch = String(chunks[c] || '').trim();
+              if (!ch) continue;
+              if (/\d/.test(ch)) continue;
+              if (isRegionLikeChunk(ch)) continue;
+              if (ch.length < 3) continue;
+              return ch;
+            }
+          }
+
           var byCityPrefix = text.match(/(?:^|,\s*)г\.\s*([A-Za-zА-Яа-яЁё\- ]+)(?:,|$)/i);
           if (byCityPrefix && byCityPrefix[1]) {
             var city1 = normalizeCityName(byCityPrefix[1]);
@@ -300,9 +325,54 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
 
       function bindCdekMapCitySync(root) {
         if (!root) return;
-        // Disabled: any auto city sync here causes expensive checkout recalculation
-        // and may reset/trim available shipping methods.
-        return;
+        if (root.dataset.shkCdekSyncBound === '1') return;
+        root.dataset.shkCdekSyncBound = '1';
+
+        var syncTimer = null;
+        function scheduleSync(delay) {
+          if (syncTimer) window.clearTimeout(syncTimer);
+          syncTimer = window.setTimeout(function() {
+            attemptSyncCityFromCdekSelection(root);
+          }, Math.max(0, delay || 0));
+        }
+
+        function isCdekField(el) {
+          if (!el) return false;
+          var name = String(el.name || '').toLowerCase();
+          var id = String(el.id || '').toLowerCase();
+          return (
+            name.indexOf('cdek') !== -1 ||
+            name.indexOf('sdek') !== -1 ||
+            id.indexOf('cdek') !== -1 ||
+            id.indexOf('sdek') !== -1
+          );
+        }
+
+        root.addEventListener('change', function(e){
+          var t = e.target;
+          if (!isCdekField(t)) return;
+          scheduleSync(120);
+        }, true);
+
+        root.addEventListener('blur', function(e){
+          var t = e.target;
+          if (!isCdekField(t)) return;
+          scheduleSync(180);
+        }, true);
+
+        root.addEventListener('keydown', function(e){
+          var t = e.target;
+          if (!isCdekField(t)) return;
+          if (e.key === 'Enter') {
+            scheduleSync(220);
+          }
+        }, true);
+
+        root.addEventListener('click', function(e){
+          var node = e.target && e.target.closest ? e.target.closest('[role="option"], [class*="suggest"], [class*="dropdown-item"]') : null;
+          if (!node) return;
+          scheduleSync(220);
+        }, true);
       }
 
       function enforceAddressFieldVisibility(root) {
