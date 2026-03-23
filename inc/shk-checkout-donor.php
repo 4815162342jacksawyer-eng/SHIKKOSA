@@ -14,7 +14,6 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       if (!document.body.classList.contains('woocommerce-checkout')) return;
       var shkLastSyncedCity = '';
       var shkFallbackCityApplied = false;
-      var shkStableShippingMode = true;
       var shkDebug = {
         enabled: false,
         prefix: '[SHK checkout]'
@@ -126,8 +125,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             selectedHay.indexOf('пвз') !== -1;
 
           if (!shkFallbackCityApplied && isCdekLike && !getCurrentWooShippingCity(root)) {
-            // Soft one-time bootstrap for CDEK map initialization.
-            applySoftCityFallback(root, 'Москва');
+            dbg('fallback city disabled to avoid shipping list reset');
             shkFallbackCityApplied = true;
           }
         } else {
@@ -135,20 +133,6 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           shippingFields.removeAttribute('aria-disabled');
           shippingFields.style.removeProperty('display');
         }
-      }
-
-      function applySoftCityFallback(root, cityValue) {
-        var value = String(cityValue || '').trim();
-        if (!value || !root) return;
-
-        var cityInput = root.querySelector('#shipping-city, input[name="shipping_city"], input[name="shipping-city"], .wc-block-components-address-form__city input');
-        if (!cityInput) return;
-        if (String(cityInput.value || '').trim()) return;
-
-        cityInput.value = value;
-        cityInput.dispatchEvent(new Event('input', { bubbles: true }));
-        cityInput.dispatchEvent(new Event('change', { bubbles: true }));
-        dbg('soft fallback city applied', value);
       }
 
       function getCurrentWooShippingCity(root) {
@@ -288,7 +272,10 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       }
 
       function bindCdekMapCitySync(root) {
-        if (!root || shkStableShippingMode) return;
+        if (!root) return;
+        // Disabled: any auto city sync here causes expensive checkout recalculation
+        // and may reset/trim available shipping methods.
+        return;
       }
 
       function enforceAddressFieldVisibility(root) {
