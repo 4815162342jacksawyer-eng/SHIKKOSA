@@ -159,9 +159,13 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             syncWooShippingCity(root, city);
           };
 
-          searchInput.addEventListener('input', pushCity);
           searchInput.addEventListener('change', pushCity);
           searchInput.addEventListener('blur', pushCity);
+          searchInput.addEventListener('keydown', function(evt){
+            if (evt.key === 'Enter') {
+              window.setTimeout(pushCity, 0);
+            }
+          });
           searchInput.dataset.shkCdekCityBound = '1';
         });
       }
