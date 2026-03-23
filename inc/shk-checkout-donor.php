@@ -195,7 +195,9 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         searchInputs.forEach(function(searchInput) {
           if (searchInput.dataset.shkCdekCityBound === '1') return;
 
-          var pushCity = function() {
+          var pushCityFromSelectedSuggestion = function() {
+            // IMPORTANT: never sync from raw typing. Read value only after
+            // explicit suggestion selection when widget has finalized input.
             var raw = String(searchInput.value || '').trim();
             if (!raw) return;
             var normalized = raw.replace(/\s+/g, ' ');
@@ -205,13 +207,18 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             syncWooShippingCity(root, city);
           };
 
-          searchInput.addEventListener('change', pushCity);
-          searchInput.addEventListener('blur', pushCity);
-          searchInput.addEventListener('keydown', function(evt){
-            if (evt.key === 'Enter') {
-              window.setTimeout(pushCity, 0);
-            }
-          });
+          var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+          if (shippingOptions) {
+            shippingOptions.addEventListener('click', function(evt) {
+              var t = evt.target;
+              if (!t) return;
+              var suggestionNode = t.closest('[role="option"], li, button, .suggest-item, .autocomplete-suggestion');
+              if (!suggestionNode) return;
+              if (suggestionNode === searchInput || suggestionNode.contains(searchInput)) return;
+              window.setTimeout(pushCityFromSelectedSuggestion, 60);
+            }, true);
+          }
+
           searchInput.dataset.shkCdekCityBound = '1';
         });
       }
