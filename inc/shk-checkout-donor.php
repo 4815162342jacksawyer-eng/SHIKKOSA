@@ -128,6 +128,12 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             applySoftFallbackCity(root, 'Москва');
             shkFallbackCityApplied = true;
           }
+
+          // For CDEK keep shipping section visible so widget/map can render.
+          // We still hide standard Woo address inputs elsewhere.
+          if (isCdekLike) {
+            shippingFields.style.removeProperty('display');
+          }
         } else {
           shippingFields.classList.remove('shk-shipping-address-disabled');
           shippingFields.removeAttribute('aria-disabled');
