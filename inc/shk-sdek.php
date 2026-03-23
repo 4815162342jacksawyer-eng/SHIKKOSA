@@ -1702,20 +1702,6 @@ function shikkosa_sdek_settings_page() {
     <?php
 }
 
-function shikkosa_sdek_normalize_note_label_local( $label ) {
-    $text = trim( (string) $label );
-    if ( '' === $text ) {
-        return '';
-    }
-    if ( function_exists( 'mb_strtolower' ) ) {
-        $text = mb_strtolower( $text );
-    } else {
-        $text = strtolower( $text );
-    }
-    $text = preg_replace( '/\s+/u', ' ', $text );
-    return trim( (string) $text );
-}
-
 add_action( 'wp_footer', 'shikkosa_sdek_checkout_notes_blocks', 130 );
 function shikkosa_sdek_checkout_notes_blocks() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || is_order_received_page() ) {
@@ -1741,43 +1727,6 @@ function shikkosa_sdek_checkout_notes_blocks() {
             'delivery' => isset( $opt['cdek_express_door_door_delivery_comment'] ) ? (string) $opt['cdek_express_door_door_delivery_comment'] : '',
         ),
     );
-    $notes_by_label = array();
-    $attach_label_note = static function( $label, $price, $delivery ) use ( &$notes_by_label ) {
-        $price = trim( (string) $price );
-        $delivery = trim( (string) $delivery );
-        if ( '' === $price && '' === $delivery ) {
-            return;
-        }
-        $normalized = shikkosa_sdek_normalize_note_label_local( $label );
-        if ( '' === $normalized ) {
-            return;
-        }
-        $notes_by_label[ $normalized ] = array(
-            'price'    => $price,
-            'delivery' => $delivery,
-        );
-    };
-    foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile_code ) {
-        $attach_label_note(
-            isset( $opt[ $profile_code . '_label' ] ) ? (string) $opt[ $profile_code . '_label' ] : '',
-            isset( $notes[ $profile_code ]['price'] ) ? (string) $notes[ $profile_code ]['price'] : '',
-            isset( $notes[ $profile_code ]['delivery'] ) ? (string) $notes[ $profile_code ]['delivery'] : ''
-        );
-    }
-    $split_profiles = array( 'msk_no_fit', 'msk_fit', 'rf_no_fit', 'rf_fit' );
-    foreach ( $split_profiles as $split_code ) {
-        $split_price = isset( $opt[ $split_code . '_price_comment' ] ) ? (string) $opt[ $split_code . '_price_comment' ] : '';
-        $split_delivery = isset( $opt[ $split_code . '_delivery_comment' ] ) ? (string) $opt[ $split_code . '_delivery_comment' ] : '';
-        $notes[ $split_code ] = array(
-            'price'    => $split_price,
-            'delivery' => $split_delivery,
-        );
-        $attach_label_note(
-            isset( $opt[ $split_code . '_label' ] ) ? (string) $opt[ $split_code . '_label' ] : '',
-            $split_price,
-            $split_delivery
-        );
-    }
     foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile_code ) {
         $variants = shikkosa_sdek_get_profile_variants( $opt, $profile_code );
         foreach ( $variants as $idx => $variant_data ) {
@@ -1785,11 +1734,6 @@ function shikkosa_sdek_checkout_notes_blocks() {
             $notes[ $profile_code . '_variant_' . $n ] = array(
                 'price'    => isset( $variant_data['price_comment'] ) ? (string) $variant_data['price_comment'] : '',
                 'delivery' => isset( $variant_data['delivery_comment'] ) ? (string) $variant_data['delivery_comment'] : '',
-            );
-            $attach_label_note(
-                isset( $variant_data['label'] ) ? (string) $variant_data['label'] : '',
-                isset( $variant_data['price_comment'] ) ? (string) $variant_data['price_comment'] : '',
-                isset( $variant_data['delivery_comment'] ) ? (string) $variant_data['delivery_comment'] : ''
             );
         }
     }
@@ -1800,17 +1744,11 @@ function shikkosa_sdek_checkout_notes_blocks() {
             'price'    => isset( $row['price_comment'] ) ? (string) $row['price_comment'] : '',
             'delivery' => isset( $row['delivery_comment'] ) ? (string) $row['delivery_comment'] : '',
         );
-        $attach_label_note(
-            isset( $row['label'] ) ? (string) $row['label'] : '',
-            isset( $row['price_comment'] ) ? (string) $row['price_comment'] : '',
-            isset( $row['delivery_comment'] ) ? (string) $row['delivery_comment'] : ''
-        );
     }
     ?>
     <script>
     (function () {
       var notes = <?php echo wp_json_encode( $notes ); ?>;
-      var notesByLabel = <?php echo wp_json_encode( $notes_by_label ); ?>;
 
       function detectCode(inputValue, inputId) {
         var hay = (String(inputValue || '') + ' ' + String(inputId || '')).toLowerCase();
@@ -1829,44 +1767,6 @@ function shikkosa_sdek_checkout_notes_blocks() {
         return '';
       }
 
-      function normalizeLabel(text) {
-        return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
-      }
-
-      function detectSplitCodeByLabel(labelText) {
-        var hay = normalizeLabel(labelText);
-        var isMsk = (hay.indexOf('москв') !== -1 || hay.indexOf('мкад') !== -1 || hay.indexOf('мо ') !== -1 || hay.indexOf('мо,') !== -1 || hay.indexOf('мо/') !== -1);
-        var isRf = (hay.indexOf('росси') !== -1 || hay.indexOf('рф') !== -1) && !isMsk;
-        var hasFit = (hay.indexOf('примерк') !== -1);
-        if (isMsk && hasFit) return 'msk_fit';
-        if (isMsk) return 'msk_no_fit';
-        if (isRf && hasFit) return 'rf_fit';
-        if (isRf) return 'rf_no_fit';
-        return '';
-      }
-
-      function findNoteByLabel(labelText) {
-        var normalized = normalizeLabel(labelText);
-        if (!normalized) return null;
-
-        if (notesByLabel[normalized]) {
-          return notesByLabel[normalized];
-        }
-
-        var best = null;
-        var bestLen = 0;
-        Object.keys(notesByLabel).forEach(function(key){
-          if (!key) return;
-          if (normalized.indexOf(key) !== -1 || key.indexOf(normalized) !== -1) {
-            if (key.length > bestLen) {
-              best = notesByLabel[key];
-              bestLen = key.length;
-            }
-          }
-        });
-        return best;
-      }
-
       function applyNotes() {
         var options = document.querySelectorAll('.wc-block-checkout__shipping-option .wc-block-components-radio-control__option');
         if (!options.length) return;
@@ -1876,26 +1776,15 @@ function shikkosa_sdek_checkout_notes_blocks() {
           if (!input) return;
           var labelTextNode = opt.querySelector('.wc-block-components-radio-control__label');
           var labelText = labelTextNode ? labelTextNode.textContent : '';
+
+          var code = detectCode((input.value || '') + ' ' + labelText, input.id);
+          if (!code || !notes[code]) return;
+
+          var noteData = notes[code];
           var layout = opt.querySelector('.wc-block-components-radio-control__option-layout');
           if (!layout) return;
 
           var existing = opt.querySelector('.shk-sdek-note');
-
-          var code = detectCode((input.value || '') + ' ' + labelText, input.id);
-          if (!code) {
-            code = detectSplitCodeByLabel(labelText);
-          }
-
-          var noteData = code && notes[code] ? notes[code] : null;
-          if ((!noteData || (!String(noteData.price || '').trim() && !String(noteData.delivery || '').trim())) && labelText) {
-            noteData = findNoteByLabel(labelText);
-          }
-
-          if (!noteData) {
-            if (existing) existing.innerHTML = '';
-            return;
-          }
-
           if (!existing) {
             existing = document.createElement('div');
             existing.className = 'shk-sdek-note';
