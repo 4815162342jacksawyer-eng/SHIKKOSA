@@ -333,6 +333,40 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         dbg('attemptSyncCityFromCdekSelection: finished', Math.round(performance.now() - started) + 'ms');
       }
 
+      function isCdekShippingSelected(root) {
+        if (!root) return false;
+        var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+        if (!shippingOptions) return false;
+        var selected = shippingOptions.querySelector('.wc-block-components-radio-control__input:checked');
+        if (!selected) return false;
+        var opt = selected.closest('.wc-block-components-radio-control__option');
+        var hay = (
+          String(selected.value || '') + ' ' +
+          String(selected.id || '') + ' ' +
+          String(opt ? opt.textContent || '' : '')
+        ).toLowerCase();
+        return (
+          hay.indexOf('cdek') !== -1 ||
+          hay.indexOf('sdek') !== -1 ||
+          hay.indexOf('сдэк') !== -1 ||
+          hay.indexOf('пвз') !== -1
+        );
+      }
+
+      function runCdekSyncBurst(root, reason) {
+        if (!root) return;
+        if (!isCdekShippingSelected(root)) return;
+        var tries = 0;
+        var iv = window.setInterval(function(){
+          tries++;
+          attemptSyncCityFromCdekSelection(root);
+          if (tries >= 8) {
+            window.clearInterval(iv);
+          }
+        }, 260);
+        dbg('runCdekSyncBurst', reason || 'unknown');
+      }
+
       function bindCdekMapCitySync(root) {
         if (!root) return;
         if (root.dataset.shkCdekSyncBound === '1') return;
@@ -371,6 +405,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           var t = e.target;
           if (!isCdekField(t)) return;
           scheduleSync(120);
+          runCdekSyncBurst(root, 'change');
         }, true);
 
         root.addEventListener('blur', function(e){
@@ -384,6 +419,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           if (!isCdekField(t)) return;
           if (e.key === 'Enter') {
             scheduleSync(220);
+            runCdekSyncBurst(root, 'enter');
           }
         }, true);
 
@@ -393,9 +429,11 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           var directText = extractCityFromText(String(node.textContent || ''));
           if (directText) {
             syncWooShippingCity(root, directText);
+            runCdekSyncBurst(root, 'suggest-click-text');
             return;
           }
           scheduleSync(220);
+          runCdekSyncBurst(root, 'suggest-click');
         }, true);
       }
 
@@ -977,6 +1015,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         syncShippingAddressAvailability(root);
         bindCdekMapCitySync(root);
         ensureCdekMapBootstrap(root);
+        runCdekSyncBurst(root, 'applyTweaks');
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -1014,6 +1053,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         syncShippingAddressAvailability(root);
         bindCdekMapCitySync(root);
         ensureCdekMapBootstrap(root);
+        runCdekSyncBurst(root, 'change-event');
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -1031,6 +1071,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         syncShippingAddressAvailability(root);
         bindCdekMapCitySync(root);
         ensureCdekMapBootstrap(root);
+        runCdekSyncBurst(root, 'checkout-update');
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
