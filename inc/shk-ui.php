@@ -247,6 +247,13 @@ add_action('wp_footer', function(){ ?>
       var tagText = card.querySelector('.shk-product-tag .elementor-shortcode');
       if (!tagText) return;
 
+      if (card.classList.contains('product_cat-newproducts')) {
+        if (String(tagText.textContent || '').trim() !== 'NEW') {
+          tagText.textContent = 'NEW';
+        }
+        return;
+      }
+
       var priceBox = card.querySelector('.elementor-element.elementor-element-848c657 .elementor-image-box-content');
       if (!priceBox) return;
 
