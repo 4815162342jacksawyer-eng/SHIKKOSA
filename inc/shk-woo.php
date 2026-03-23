@@ -245,6 +245,379 @@ add_filter(
     2
 );
 
+function shikkosa_coupon_rule_type_meta_key_local() {
+    return '_shk_coupon_rule_type';
+}
+
+function shikkosa_coupon_n_plus_one_meta_key_local() {
+    return '_shk_coupon_n_plus_one_n';
+}
+
+function shikkosa_coupon_second_cat_percent_meta_key_local() {
+    return '_shk_coupon_second_cat_percent';
+}
+
+add_filter(
+    'woocommerce_coupon_data_tabs',
+    function( $tabs ) {
+        if ( ! is_array( $tabs ) ) {
+            $tabs = array();
+        }
+        $tabs['shk_promotions'] = array(
+            'label'  => 'SHK Акции',
+            'target' => 'shk_promotions_coupon_data',
+            'class'  => array(),
+        );
+        return $tabs;
+    },
+    30
+);
+
+add_action(
+    'woocommerce_coupon_data_panels',
+    function() {
+        global $post;
+        if ( ! $post || 'shop_coupon' !== $post->post_type ) {
+            return;
+        }
+
+        $coupon_id = (int) $post->ID;
+        $rule_type = (string) get_post_meta( $coupon_id, shikkosa_coupon_rule_type_meta_key_local(), true );
+        if ( '' === $rule_type ) {
+            $rule_type = 'none';
+        }
+        $n_plus_one_n = (int) get_post_meta( $coupon_id, shikkosa_coupon_n_plus_one_meta_key_local(), true );
+        if ( $n_plus_one_n <= 0 ) {
+            $n_plus_one_n = 1;
+        }
+        $second_percent = (float) get_post_meta( $coupon_id, shikkosa_coupon_second_cat_percent_meta_key_local(), true );
+        if ( $second_percent <= 0 ) {
+            $second_percent = 50.0;
+        }
+        ?>
+        <div id="shk_promotions_coupon_data" class="panel woocommerce_options_panel hidden">
+            <div class="options_group">
+                <?php
+                woocommerce_wp_select(
+                    array(
+                        'id'          => shikkosa_coupon_rule_type_meta_key_local(),
+                        'label'       => 'Тип акции',
+                        'description' => 'Выберите механику купона для сложных акций.',
+                        'desc_tip'    => true,
+                        'value'       => $rule_type,
+                        'options'     => array(
+                            'none'                   => 'Не использовать кастомную акцию',
+                            'n_plus_one'             => 'N+1 (1+1, 2+1, 3+1...)',
+                            'second_category_percent'=> 'Скидка на второй товар той же категории (%)',
+                        ),
+                    )
+                );
+
+                woocommerce_wp_text_input(
+                    array(
+                        'id'                => shikkosa_coupon_n_plus_one_meta_key_local(),
+                        'label'             => 'N для N+1',
+                        'description'       => 'Пример: 1 = 1+1, 2 = 2+1, 3 = 3+1.',
+                        'desc_tip'          => true,
+                        'value'             => (string) $n_plus_one_n,
+                        'type'              => 'number',
+                        'custom_attributes' => array(
+                            'min'  => '1',
+                            'step' => '1',
+                        ),
+                    )
+                );
+
+                woocommerce_wp_text_input(
+                    array(
+                        'id'                => shikkosa_coupon_second_cat_percent_meta_key_local(),
+                        'label'             => 'Скидка на второй товар, %',
+                        'description'       => 'Например: 50 для скидки 50% на каждый второй товар в категории.',
+                        'desc_tip'          => true,
+                        'value'             => wc_format_decimal( $second_percent ),
+                        'type'              => 'number',
+                        'custom_attributes' => array(
+                            'min'  => '0',
+                            'max'  => '100',
+                            'step' => '0.01',
+                        ),
+                    )
+                );
+                ?>
+                <p class="form-field">
+                    <em>Рекомендация: для купонов с SHK-акцией поставьте стандартную сумму купона 0, чтобы избежать двойной скидки.</em>
+                </p>
+            </div>
+        </div>
+        <?php
+    }
+);
+
+add_action(
+    'woocommerce_coupon_options_save',
+    function( $post_id, $coupon ) {
+        $post_id = (int) $post_id;
+        if ( $post_id <= 0 ) {
+            return;
+        }
+
+        $rule_type = isset( $_POST[ shikkosa_coupon_rule_type_meta_key_local() ] ) ? sanitize_key( wp_unslash( $_POST[ shikkosa_coupon_rule_type_meta_key_local() ] ) ) : 'none';
+        $allowed = array( 'none', 'n_plus_one', 'second_category_percent' );
+        if ( ! in_array( $rule_type, $allowed, true ) ) {
+            $rule_type = 'none';
+        }
+        update_post_meta( $post_id, shikkosa_coupon_rule_type_meta_key_local(), $rule_type );
+
+        $n_plus_one_n = isset( $_POST[ shikkosa_coupon_n_plus_one_meta_key_local() ] ) ? absint( wp_unslash( $_POST[ shikkosa_coupon_n_plus_one_meta_key_local() ] ) ) : 1;
+        if ( $n_plus_one_n <= 0 ) {
+            $n_plus_one_n = 1;
+        }
+        update_post_meta( $post_id, shikkosa_coupon_n_plus_one_meta_key_local(), $n_plus_one_n );
+
+        $second_percent = isset( $_POST[ shikkosa_coupon_second_cat_percent_meta_key_local() ] ) ? (float) wc_format_decimal( wp_unslash( $_POST[ shikkosa_coupon_second_cat_percent_meta_key_local() ] ) ) : 50.0;
+        if ( $second_percent < 0 ) {
+            $second_percent = 0.0;
+        }
+        if ( $second_percent > 100 ) {
+            $second_percent = 100.0;
+        }
+        update_post_meta( $post_id, shikkosa_coupon_second_cat_percent_meta_key_local(), $second_percent );
+    },
+    20,
+    2
+);
+
+add_action(
+    'admin_footer',
+    function() {
+        $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+        if ( ! $screen || 'shop_coupon' !== $screen->id ) {
+            return;
+        }
+        ?>
+        <script>
+        (function($){
+          function toggleShkCouponFields(){
+            var type = $('#<?php echo esc_js( shikkosa_coupon_rule_type_meta_key_local() ); ?>').val() || 'none';
+            var nField = $('#<?php echo esc_js( shikkosa_coupon_n_plus_one_meta_key_local() ); ?>').closest('.form-field');
+            var secondField = $('#<?php echo esc_js( shikkosa_coupon_second_cat_percent_meta_key_local() ); ?>').closest('.form-field');
+            nField.toggle(type === 'n_plus_one');
+            secondField.toggle(type === 'second_category_percent');
+          }
+          $(document).on('change', '#<?php echo esc_js( shikkosa_coupon_rule_type_meta_key_local() ); ?>', toggleShkCouponFields);
+          $(document).ready(toggleShkCouponFields);
+        })(jQuery);
+        </script>
+        <?php
+    }
+);
+
+function shikkosa_coupon_item_unit_price_local( $cart_item ) {
+    if ( ! is_array( $cart_item ) ) {
+        return 0.0;
+    }
+    $qty = isset( $cart_item['quantity'] ) ? (int) $cart_item['quantity'] : 0;
+    if ( $qty <= 0 ) {
+        return 0.0;
+    }
+    $line_subtotal = isset( $cart_item['line_subtotal'] ) ? (float) $cart_item['line_subtotal'] : 0.0;
+    if ( $line_subtotal > 0 ) {
+        return $line_subtotal / $qty;
+    }
+    $product = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+    if ( $product && is_a( $product, 'WC_Product' ) ) {
+        return (float) $product->get_price();
+    }
+    return 0.0;
+}
+
+function shikkosa_coupon_item_effective_product_id_local( $cart_item ) {
+    $product = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+    if ( $product && is_a( $product, 'WC_Product_Variation' ) ) {
+        return (int) $product->get_parent_id();
+    }
+    if ( $product && is_a( $product, 'WC_Product' ) ) {
+        return (int) $product->get_id();
+    }
+    return isset( $cart_item['product_id'] ) ? (int) $cart_item['product_id'] : 0;
+}
+
+function shikkosa_coupon_item_matches_native_restrictions_local( $cart_item, $coupon ) {
+    if ( ! $coupon || ! is_a( $coupon, 'WC_Coupon' ) ) {
+        return false;
+    }
+    $product_id = shikkosa_coupon_item_effective_product_id_local( $cart_item );
+    if ( $product_id <= 0 ) {
+        return false;
+    }
+
+    $include_products = array_map( 'intval', (array) $coupon->get_product_ids() );
+    $exclude_products = array_map( 'intval', (array) $coupon->get_excluded_product_ids() );
+    if ( ! empty( $include_products ) && ! in_array( $product_id, $include_products, true ) ) {
+        return false;
+    }
+    if ( in_array( $product_id, $exclude_products, true ) ) {
+        return false;
+    }
+
+    $product_cats = array_map( 'intval', wc_get_product_term_ids( $product_id, 'product_cat' ) );
+    $include_cats = array_map( 'intval', (array) $coupon->get_product_categories() );
+    $exclude_cats = array_map( 'intval', (array) $coupon->get_excluded_product_categories() );
+    if ( ! empty( $include_cats ) && 0 === count( array_intersect( $product_cats, $include_cats ) ) ) {
+        return false;
+    }
+    if ( ! empty( $exclude_cats ) && count( array_intersect( $product_cats, $exclude_cats ) ) > 0 ) {
+        return false;
+    }
+
+    return true;
+}
+
+function shikkosa_coupon_discount_n_plus_one_local( $coupon, $cart_items ) {
+    $coupon_id = $coupon ? (int) $coupon->get_id() : 0;
+    if ( $coupon_id <= 0 ) {
+        return 0.0;
+    }
+    $n = (int) get_post_meta( $coupon_id, shikkosa_coupon_n_plus_one_meta_key_local(), true );
+    if ( $n <= 0 ) {
+        $n = 1;
+    }
+    $bundle = $n + 1;
+    if ( $bundle <= 1 ) {
+        return 0.0;
+    }
+
+    $discount = 0.0;
+    foreach ( (array) $cart_items as $item ) {
+        if ( ! shikkosa_coupon_item_matches_native_restrictions_local( $item, $coupon ) ) {
+            continue;
+        }
+        $qty = isset( $item['quantity'] ) ? (int) $item['quantity'] : 0;
+        if ( $qty < $bundle ) {
+            continue;
+        }
+        $unit_price = shikkosa_coupon_item_unit_price_local( $item );
+        if ( $unit_price <= 0 ) {
+            continue;
+        }
+        $free_count = (int) floor( $qty / $bundle );
+        $discount += $free_count * $unit_price;
+    }
+    return max( 0.0, $discount );
+}
+
+function shikkosa_coupon_discount_second_category_percent_local( $coupon, $cart_items ) {
+    $coupon_id = $coupon ? (int) $coupon->get_id() : 0;
+    if ( $coupon_id <= 0 ) {
+        return 0.0;
+    }
+    $percent = (float) get_post_meta( $coupon_id, shikkosa_coupon_second_cat_percent_meta_key_local(), true );
+    if ( $percent <= 0 ) {
+        return 0.0;
+    }
+    if ( $percent > 100 ) {
+        $percent = 100.0;
+    }
+
+    $category_prices = array();
+    foreach ( (array) $cart_items as $item ) {
+        if ( ! shikkosa_coupon_item_matches_native_restrictions_local( $item, $coupon ) ) {
+            continue;
+        }
+        $qty = isset( $item['quantity'] ) ? (int) $item['quantity'] : 0;
+        if ( $qty <= 0 ) {
+            continue;
+        }
+        $unit_price = shikkosa_coupon_item_unit_price_local( $item );
+        if ( $unit_price <= 0 ) {
+            continue;
+        }
+
+        $product_id = shikkosa_coupon_item_effective_product_id_local( $item );
+        $cat_ids = array_map( 'intval', wc_get_product_term_ids( $product_id, 'product_cat' ) );
+        if ( empty( $cat_ids ) ) {
+            $cat_ids = array( 0 );
+        } else {
+            sort( $cat_ids );
+            $cat_ids = array( (int) $cat_ids[0] );
+        }
+
+        $cat_id = (int) $cat_ids[0];
+        if ( ! isset( $category_prices[ $cat_id ] ) ) {
+            $category_prices[ $cat_id ] = array();
+        }
+
+        for ( $i = 0; $i < $qty; $i++ ) {
+            $category_prices[ $cat_id ][] = $unit_price;
+        }
+    }
+
+    $discount = 0.0;
+    foreach ( $category_prices as $prices ) {
+        if ( count( $prices ) < 2 ) {
+            continue;
+        }
+        rsort( $prices, SORT_NUMERIC );
+        for ( $i = 1; $i < count( $prices ); $i += 2 ) {
+            $discount += $prices[ $i ] * ( $percent / 100 );
+        }
+    }
+    return max( 0.0, $discount );
+}
+
+add_action(
+    'woocommerce_cart_calculate_fees',
+    function( $cart ) {
+        if ( is_admin() && ! wp_doing_ajax() ) {
+            return;
+        }
+        if ( ! $cart || ! is_a( $cart, 'WC_Cart' ) ) {
+            return;
+        }
+
+        $coupon_codes = array_map( 'wc_format_coupon_code', (array) $cart->get_applied_coupons() );
+        if ( empty( $coupon_codes ) ) {
+            return;
+        }
+
+        foreach ( $coupon_codes as $code ) {
+            if ( '' === $code ) {
+                continue;
+            }
+            try {
+                $coupon = new WC_Coupon( $code );
+            } catch ( Exception $e ) {
+                continue;
+            }
+            if ( ! $coupon || ! $coupon->get_id() ) {
+                continue;
+            }
+
+            $rule_type = (string) get_post_meta( (int) $coupon->get_id(), shikkosa_coupon_rule_type_meta_key_local(), true );
+            if ( '' === $rule_type || 'none' === $rule_type ) {
+                continue;
+            }
+
+            $discount = 0.0;
+            if ( 'n_plus_one' === $rule_type ) {
+                $discount = shikkosa_coupon_discount_n_plus_one_local( $coupon, $cart->get_cart() );
+            } elseif ( 'second_category_percent' === $rule_type ) {
+                $discount = shikkosa_coupon_discount_second_category_percent_local( $coupon, $cart->get_cart() );
+            }
+
+            $discount = (float) wc_format_decimal( $discount );
+            if ( $discount <= 0 ) {
+                continue;
+            }
+
+            $label = 'Акция по купону ' . strtoupper( $code );
+            $cart->add_fee( $label, -1 * $discount, false );
+        }
+    },
+    40,
+    1
+);
+
 function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
     if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
         return $price;
