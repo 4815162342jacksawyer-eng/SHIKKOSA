@@ -2325,6 +2325,9 @@ function shikkosa_sdek_checkout_notes_blocks() {
               var noteData = findNoteByRateValue(input.value || '');
               var layout = opt.querySelector('.wc-block-components-radio-control__option-layout');
               if (!layout) return;
+              var labelGroup = opt.querySelector('.wc-block-components-radio-control__label-group');
+              var secondary = opt.querySelector('.wc-block-components-radio-control__secondary-label');
+              var noteMount = labelGroup || layout;
 
               var existing = opt.querySelector('.shk-sdek-note');
               if (!noteData) {
@@ -2335,7 +2338,10 @@ function shikkosa_sdek_checkout_notes_blocks() {
               if (!existing) {
                 existing = document.createElement('div');
                 existing.className = 'shk-sdek-note';
-                layout.appendChild(existing);
+                noteMount.appendChild(existing);
+              }
+              if (secondary && existing.previousElementSibling !== secondary) {
+                secondary.insertAdjacentElement('afterend', existing);
               }
 
               var price = String(noteData.price || '').trim();
@@ -2466,12 +2472,18 @@ function shikkosa_sdek_checkout_notes_blocks() {
           var noteData = notes[code];
           var layout = opt.querySelector('.wc-block-components-radio-control__option-layout');
           if (!layout) return;
+          var labelGroup = opt.querySelector('.wc-block-components-radio-control__label-group');
+          var secondary = opt.querySelector('.wc-block-components-radio-control__secondary-label');
+          var noteMount = labelGroup || layout;
 
           var existing = opt.querySelector('.shk-sdek-note');
           if (!existing) {
             existing = document.createElement('div');
             existing.className = 'shk-sdek-note';
-            layout.appendChild(existing);
+            noteMount.appendChild(existing);
+          }
+          if (secondary && existing.previousElementSibling !== secondary) {
+            secondary.insertAdjacentElement('afterend', existing);
           }
 
           var price = (noteData.price || '').trim();
