@@ -111,6 +111,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           shippingFields.classList.add('shk-shipping-address-disabled');
           shippingFields.setAttribute('aria-disabled', 'true');
           shippingFields.style.setProperty('display', 'none', 'important');
+          toggleShippingAddressInputs(root, true);
 
           var selectedOption = selectedInput ? selectedInput.closest('.wc-block-components-radio-control__option') : null;
           var selectedHay = (
@@ -138,7 +139,34 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           shippingFields.classList.remove('shk-shipping-address-disabled');
           shippingFields.removeAttribute('aria-disabled');
           shippingFields.style.removeProperty('display');
+          toggleShippingAddressInputs(root, false);
         }
+      }
+
+      function toggleShippingAddressInputs(root, hideInputs) {
+        if (!root) return;
+        var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
+        if (!shippingFields) return;
+        var selectors = [
+          '.wc-block-components-address-form__address_1',
+          '.wc-block-components-address-form__address_2',
+          '.wc-block-components-address-form__city',
+          '.wc-block-components-address-form__postcode',
+          '.wc-block-components-address-form__state',
+          '.wc-block-components-address-form__country',
+          '.shk-house-apartment',
+          '.shk-street-house-apartment',
+          '.shk-city-postcode'
+        ];
+        selectors.forEach(function(sel){
+          shippingFields.querySelectorAll(sel).forEach(function(el){
+            if (hideInputs) {
+              el.style.setProperty('display', 'none', 'important');
+            } else {
+              el.style.removeProperty('display');
+            }
+          });
+        });
       }
 
       function getCurrentWooShippingCity(root) {
@@ -336,10 +364,10 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           var byCityPrefix = text.match(/(?:^|,\s*)г\.\s*([A-Za-zА-Яа-яЁё\- ]+)(?:,|$)/i);
           if (byCityPrefix && byCityPrefix[1]) {
             var city1 = normalizeCityName(byCityPrefix[1]);
-            if (city1) return city1;
+            if (extractCityFromText(city1)) return city1;
           }
           var firstChunk = text.split(',')[0] || '';
-          var city2 = normalizeCityName(firstChunk);
+          var city2 = extractCityFromText(firstChunk);
           if (city2) return city2;
         }
         return '';
