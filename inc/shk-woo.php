@@ -618,6 +618,557 @@ add_action(
     1
 );
 
+add_filter(
+    'woocommerce_coupon_get_amount',
+    function( $amount, $coupon ) {
+        if ( is_admin() && ! wp_doing_ajax() ) {
+            return $amount;
+        }
+        if ( ! $coupon || ! is_a( $coupon, 'WC_Coupon' ) ) {
+            return $amount;
+        }
+        $rule_type = (string) get_post_meta( (int) $coupon->get_id(), shikkosa_coupon_rule_type_meta_key_local(), true );
+        if ( '' !== $rule_type && 'none' !== $rule_type ) {
+            return 0;
+        }
+        return $amount;
+    },
+    20,
+    2
+);
+
+function shikkosa_marketing_certificate_product_id_option_key_local() {
+    return 'shk_marketing_certificate_product_id';
+}
+
+function shikkosa_marketing_certificate_form_id_option_key_local() {
+    return 'shk_marketing_certificate_form_id';
+}
+
+function shikkosa_marketing_certificate_expiry_days_option_key_local() {
+    return 'shk_marketing_certificate_expiry_days';
+}
+
+add_action(
+    'admin_init',
+    function() {
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_certificate_product_id_option_key_local(),
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 0,
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_certificate_form_id_option_key_local(),
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 2873,
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_certificate_expiry_days_option_key_local(),
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 365,
+            )
+        );
+    }
+);
+
+add_action(
+    'admin_menu',
+    function() {
+        $parent_slug = 'woocommerce-marketing';
+        global $submenu;
+        if ( ! isset( $submenu[ $parent_slug ] ) ) {
+            $parent_slug = 'woocommerce';
+        }
+
+        add_submenu_page(
+            $parent_slug,
+            'SHK Маркетинг',
+            'SHK Маркетинг',
+            'manage_woocommerce',
+            'shk-marketing-promotions',
+            'shikkosa_render_marketing_settings_page_local'
+        );
+    },
+    40
+);
+
+function shikkosa_render_marketing_settings_page_local() {
+    if ( ! current_user_can( 'manage_woocommerce' ) ) {
+        return;
+    }
+
+    $product_id = (int) get_option( shikkosa_marketing_certificate_product_id_option_key_local(), 0 );
+    $form_id = (int) get_option( shikkosa_marketing_certificate_form_id_option_key_local(), 2873 );
+    $expiry_days = (int) get_option( shikkosa_marketing_certificate_expiry_days_option_key_local(), 365 );
+    if ( $form_id <= 0 ) {
+        $form_id = 2873;
+    }
+    if ( $expiry_days <= 0 ) {
+        $expiry_days = 365;
+    }
+    ?>
+    <div class="wrap">
+        <h1>SHK Маркетинг</h1>
+        <p>Купоны редактируются в WooCommerce, в карточке купона во вкладке <strong>SHK Акции</strong>.</p>
+        <p><a class="button button-secondary" href="<?php echo esc_url( admin_url( 'edit.php?post_type=shop_coupon' ) ); ?>">Открыть купоны</a></p>
+
+        <hr />
+
+        <h2>Сертификаты</h2>
+        <form method="post" action="options.php">
+            <?php settings_fields( 'shikkosa_marketing_settings_group' ); ?>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><label for="<?php echo esc_attr( shikkosa_marketing_certificate_product_id_option_key_local() ); ?>">ID Woo-товара сертификата</label></th>
+                    <td>
+                        <input
+                            id="<?php echo esc_attr( shikkosa_marketing_certificate_product_id_option_key_local() ); ?>"
+                            name="<?php echo esc_attr( shikkosa_marketing_certificate_product_id_option_key_local() ); ?>"
+                            type="number"
+                            min="0"
+                            step="1"
+                            value="<?php echo esc_attr( (string) $product_id ); ?>"
+                            class="regular-text"
+                        />
+                        <p class="description">Укажите ID виртуального товара, который продает сертификат.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="<?php echo esc_attr( shikkosa_marketing_certificate_form_id_option_key_local() ); ?>">ID Forminator формы</label></th>
+                    <td>
+                        <input
+                            id="<?php echo esc_attr( shikkosa_marketing_certificate_form_id_option_key_local() ); ?>"
+                            name="<?php echo esc_attr( shikkosa_marketing_certificate_form_id_option_key_local() ); ?>"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value="<?php echo esc_attr( (string) $form_id ); ?>"
+                            class="regular-text"
+                        />
+                        <p class="description">Для страницы <code>/certificate</code> сейчас используется форма 2873.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="<?php echo esc_attr( shikkosa_marketing_certificate_expiry_days_option_key_local() ); ?>">Срок действия сертификата, дней</label></th>
+                    <td>
+                        <input
+                            id="<?php echo esc_attr( shikkosa_marketing_certificate_expiry_days_option_key_local() ); ?>"
+                            name="<?php echo esc_attr( shikkosa_marketing_certificate_expiry_days_option_key_local() ); ?>"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value="<?php echo esc_attr( (string) $expiry_days ); ?>"
+                            class="regular-text"
+                        />
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button( 'Сохранить настройки' ); ?>
+        </form>
+    </div>
+    <?php
+}
+
+function shikkosa_certificate_product_id_local() {
+    $product_id = (int) get_option( shikkosa_marketing_certificate_product_id_option_key_local(), 0 );
+    return $product_id > 0 ? $product_id : 0;
+}
+
+function shikkosa_certificate_cart_item_data_key_local() {
+    return 'shk_certificate_payload';
+}
+
+add_action(
+    'wp_ajax_shk_certificate_add_to_cart',
+    'shikkosa_certificate_ajax_add_to_cart_local'
+);
+add_action(
+    'wp_ajax_nopriv_shk_certificate_add_to_cart',
+    'shikkosa_certificate_ajax_add_to_cart_local'
+);
+
+function shikkosa_certificate_ajax_add_to_cart_local() {
+    if ( ! function_exists( 'WC' ) || ! WC()->cart ) {
+        wp_send_json_error( array( 'message' => 'Корзина недоступна.' ), 500 );
+    }
+
+    check_ajax_referer( 'shk_certificate_buy', 'nonce' );
+
+    $product_id = shikkosa_certificate_product_id_local();
+    if ( $product_id <= 0 ) {
+        wp_send_json_error( array( 'message' => 'Не настроен товар сертификата.' ), 400 );
+    }
+
+    $amount = isset( $_POST['number_1'] ) ? (float) wc_format_decimal( wp_unslash( $_POST['number_1'] ) ) : 0.0;
+    if ( $amount < 10000 || $amount > 100000 ) {
+        wp_send_json_error( array( 'message' => 'Сумма сертификата должна быть от 10 000 до 100 000.' ), 400 );
+    }
+
+    $buyer_name = isset( $_POST['name_1'] ) ? sanitize_text_field( wp_unslash( $_POST['name_1'] ) ) : '';
+    $buyer_phone = isset( $_POST['phone_1'] ) ? sanitize_text_field( wp_unslash( $_POST['phone_1'] ) ) : '';
+    $buyer_email = isset( $_POST['email_1'] ) ? sanitize_email( wp_unslash( $_POST['email_1'] ) ) : '';
+    $recipient_name = isset( $_POST['name_2'] ) ? sanitize_text_field( wp_unslash( $_POST['name_2'] ) ) : '';
+    $recipient_phone = isset( $_POST['phone_2'] ) ? sanitize_text_field( wp_unslash( $_POST['phone_2'] ) ) : '';
+    $recipient_email = isset( $_POST['email_2'] ) ? sanitize_email( wp_unslash( $_POST['email_2'] ) ) : '';
+    $format_type = isset( $_POST['radio_1'] ) ? sanitize_key( wp_unslash( $_POST['radio_1'] ) ) : 'one';
+    $send_mode = isset( $_POST['radio_2'] ) ? sanitize_key( wp_unslash( $_POST['radio_2'] ) ) : 'one';
+    $send_when = isset( $_POST['radio_3'] ) ? sanitize_key( wp_unslash( $_POST['radio_3'] ) ) : 'one';
+
+    if ( '' === $buyer_name || '' === $buyer_phone || '' === $buyer_email || ! is_email( $buyer_email ) ) {
+        wp_send_json_error( array( 'message' => 'Проверьте данные отправителя (имя, телефон, почта).' ), 400 );
+    }
+    if ( '' === $recipient_name || '' === $recipient_phone ) {
+        wp_send_json_error( array( 'message' => 'Проверьте данные получателя (имя, телефон).' ), 400 );
+    }
+
+    $payload = array(
+        'amount'          => (float) $amount,
+        'buyer_name'      => $buyer_name,
+        'buyer_phone'     => $buyer_phone,
+        'buyer_email'     => $buyer_email,
+        'recipient_name'  => $recipient_name,
+        'recipient_phone' => $recipient_phone,
+        'recipient_email' => $recipient_email,
+        'format_type'     => $format_type,
+        'send_mode'       => $send_mode,
+        'send_when'       => $send_when,
+    );
+
+    $cart_item_data = array(
+        shikkosa_certificate_cart_item_data_key_local() => $payload,
+        '_shk_unique_key' => md5( wp_json_encode( $payload ) . ':' . microtime( true ) ),
+    );
+
+    $added = WC()->cart->add_to_cart( $product_id, 1, 0, array(), $cart_item_data );
+    if ( ! $added ) {
+        wp_send_json_error( array( 'message' => 'Не удалось добавить сертификат в корзину.' ), 500 );
+    }
+
+    wp_send_json_success(
+        array(
+            'redirect' => wc_get_checkout_url(),
+        )
+    );
+}
+
+add_action(
+    'wp_footer',
+    function() {
+        if ( ! is_page( 'certificate' ) ) {
+            return;
+        }
+        $product_id = shikkosa_certificate_product_id_local();
+        if ( $product_id <= 0 ) {
+            return;
+        }
+        $form_id = (int) get_option( shikkosa_marketing_certificate_form_id_option_key_local(), 2873 );
+        if ( $form_id <= 0 ) {
+            $form_id = 2873;
+        }
+        ?>
+        <script>
+        (function(){
+          var form = document.getElementById('forminator-module-<?php echo (int) $form_id; ?>');
+          if (!form) return;
+
+          form.addEventListener('submit', function(e){
+            e.preventDefault();
+
+            var fd = new FormData(form);
+            function val(name){ return String(fd.get(name) || '').trim(); }
+
+            var payload = {
+              action: 'shk_certificate_add_to_cart',
+              nonce: '<?php echo esc_js( wp_create_nonce( 'shk_certificate_buy' ) ); ?>',
+              number_1: val('number-1'),
+              name_1: val('name-1'),
+              phone_1: val('phone-1'),
+              email_1: val('email-1'),
+              name_2: val('name-2'),
+              phone_2: val('phone-2'),
+              email_2: val('email-2'),
+              radio_1: val('radio-1'),
+              radio_2: val('radio-2'),
+              radio_3: val('radio-3')
+            };
+
+            var submitBtn = form.querySelector('.forminator-pagination-submit');
+            if (submitBtn) submitBtn.disabled = true;
+
+            var body = new URLSearchParams(payload).toString();
+            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+              body: body
+            }).then(function(r){ return r.json(); })
+              .then(function(res){
+                if (res && res.success && res.data && res.data.redirect) {
+                  window.location.href = res.data.redirect;
+                  return;
+                }
+                var msg = (res && res.data && res.data.message) ? res.data.message : 'Не удалось оформить сертификат.';
+                alert(msg);
+                if (submitBtn) submitBtn.disabled = false;
+              })
+              .catch(function(){
+                alert('Ошибка при отправке данных. Попробуйте еще раз.');
+                if (submitBtn) submitBtn.disabled = false;
+              });
+          }, { passive: false });
+        })();
+        </script>
+        <?php
+    },
+    120
+);
+
+add_action(
+    'woocommerce_before_calculate_totals',
+    function( $cart ) {
+        if ( is_admin() && ! wp_doing_ajax() ) {
+            return;
+        }
+        if ( ! $cart || ! is_a( $cart, 'WC_Cart' ) ) {
+            return;
+        }
+        $meta_key = shikkosa_certificate_cart_item_data_key_local();
+        foreach ( $cart->get_cart() as $cart_item_key => $cart_item ) {
+            if ( empty( $cart_item[ $meta_key ] ) || ! is_array( $cart_item[ $meta_key ] ) ) {
+                continue;
+            }
+            $amount = isset( $cart_item[ $meta_key ]['amount'] ) ? (float) $cart_item[ $meta_key ]['amount'] : 0.0;
+            if ( $amount <= 0 ) {
+                continue;
+            }
+            if ( isset( $cart_item['data'] ) && is_a( $cart_item['data'], 'WC_Product' ) ) {
+                $cart_item['data']->set_price( $amount );
+            }
+            $cart->cart_contents[ $cart_item_key ] = $cart_item;
+        }
+    },
+    30
+);
+
+add_filter(
+    'woocommerce_get_item_data',
+    function( $item_data, $cart_item ) {
+        $meta_key = shikkosa_certificate_cart_item_data_key_local();
+        if ( empty( $cart_item[ $meta_key ] ) || ! is_array( $cart_item[ $meta_key ] ) ) {
+            return $item_data;
+        }
+        $payload = (array) $cart_item[ $meta_key ];
+        $rows = array(
+            'Получатель' => isset( $payload['recipient_name'] ) ? $payload['recipient_name'] : '',
+            'Почта получателя' => isset( $payload['recipient_email'] ) ? $payload['recipient_email'] : '',
+            'Отправитель' => isset( $payload['buyer_name'] ) ? $payload['buyer_name'] : '',
+            'Почта отправителя' => isset( $payload['buyer_email'] ) ? $payload['buyer_email'] : '',
+        );
+        foreach ( $rows as $label => $value ) {
+            $value = trim( (string) $value );
+            if ( '' === $value ) {
+                continue;
+            }
+            $item_data[] = array(
+                'name'  => $label,
+                'value' => $value,
+            );
+        }
+        return $item_data;
+    },
+    20,
+    2
+);
+
+add_action(
+    'woocommerce_checkout_create_order_line_item',
+    function( $item, $cart_item_key, $values ) {
+        $meta_key = shikkosa_certificate_cart_item_data_key_local();
+        if ( empty( $values[ $meta_key ] ) || ! is_array( $values[ $meta_key ] ) ) {
+            return;
+        }
+        $payload = (array) $values[ $meta_key ];
+        $item->add_meta_data( '_shk_certificate_payload', wp_json_encode( $payload, JSON_UNESCAPED_UNICODE ), true );
+        if ( isset( $payload['recipient_email'] ) && '' !== trim( (string) $payload['recipient_email'] ) ) {
+            $item->add_meta_data( 'Почта получателя сертификата', sanitize_email( (string) $payload['recipient_email'] ), true );
+        }
+    },
+    20,
+    3
+);
+
+function shikkosa_generate_unique_coupon_code_local() {
+    for ( $i = 0; $i < 20; $i++ ) {
+        $code = 'SHK-GIFT-' . strtoupper( wp_generate_password( 8, false, false ) );
+        if ( 0 === (int) wc_get_coupon_id_by_code( $code ) ) {
+            return $code;
+        }
+    }
+    return 'SHK-GIFT-' . strtoupper( wp_generate_password( 12, false, false ) );
+}
+
+function shikkosa_create_certificate_coupon_local( $amount, $order_id, $order_item_id, $recipient_email ) {
+    $amount = (float) $amount;
+    if ( $amount <= 0 ) {
+        return '';
+    }
+
+    $code = shikkosa_generate_unique_coupon_code_local();
+    $coupon_id = wp_insert_post(
+        array(
+            'post_title'   => $code,
+            'post_content' => '',
+            'post_status'  => 'publish',
+            'post_author'  => 1,
+            'post_type'    => 'shop_coupon',
+        ),
+        true
+    );
+    if ( is_wp_error( $coupon_id ) || ! $coupon_id ) {
+        return '';
+    }
+
+    update_post_meta( $coupon_id, 'discount_type', 'fixed_cart' );
+    update_post_meta( $coupon_id, 'coupon_amount', wc_format_decimal( $amount ) );
+    update_post_meta( $coupon_id, 'individual_use', 'yes' );
+    update_post_meta( $coupon_id, 'usage_limit', 1 );
+    update_post_meta( $coupon_id, 'usage_limit_per_user', 1 );
+    update_post_meta( $coupon_id, '_shk_certificate_coupon', 'yes' );
+    update_post_meta( $coupon_id, '_shk_certificate_order_id', (int) $order_id );
+    update_post_meta( $coupon_id, '_shk_certificate_order_item_id', (int) $order_item_id );
+    if ( '' !== trim( (string) $recipient_email ) && is_email( $recipient_email ) ) {
+        update_post_meta( $coupon_id, 'customer_email', array( sanitize_email( $recipient_email ) ) );
+    }
+
+    $days = (int) get_option( shikkosa_marketing_certificate_expiry_days_option_key_local(), 365 );
+    if ( $days > 0 ) {
+        $expires = strtotime( '+' . $days . ' days', current_time( 'timestamp' ) );
+        if ( $expires ) {
+            update_post_meta( $coupon_id, 'date_expires', (int) $expires );
+        }
+    }
+
+    return $code;
+}
+
+function shikkosa_send_certificate_email_local( $to_email, $code, $amount, $order_id, $recipient_name = '', $buyer_name = '' ) {
+    $to_email = sanitize_email( (string) $to_email );
+    if ( '' === $to_email || ! is_email( $to_email ) ) {
+        return;
+    }
+    $subject = 'Ваш подарочный сертификат SHIKKOSA';
+    $amount_text = wp_strip_all_tags( wc_price( (float) $amount ) );
+    $message_lines = array();
+    $message_lines[] = 'Здравствуйте' . ( '' !== $recipient_name ? ', ' . $recipient_name : '' ) . '!';
+    $message_lines[] = '';
+    $message_lines[] = 'Вы получили подарочный сертификат SHIKKOSA.';
+    $message_lines[] = 'Код сертификата: ' . $code;
+    $message_lines[] = 'Номинал: ' . $amount_text;
+    if ( '' !== trim( (string) $buyer_name ) ) {
+        $message_lines[] = 'От: ' . $buyer_name;
+    }
+    $message_lines[] = 'Заказ: #' . (int) $order_id;
+    $message_lines[] = '';
+    $message_lines[] = 'Приятных покупок!';
+
+    wp_mail( $to_email, $subject, implode( "\n", $message_lines ) );
+}
+
+function shikkosa_issue_certificate_coupons_from_order_local( $order_id ) {
+    $order = wc_get_order( $order_id );
+    if ( ! $order ) {
+        return;
+    }
+    $certificate_product_id = shikkosa_certificate_product_id_local();
+    if ( $certificate_product_id <= 0 ) {
+        return;
+    }
+
+    foreach ( $order->get_items( 'line_item' ) as $item_id => $item ) {
+        if ( ! $item || ! is_a( $item, 'WC_Order_Item_Product' ) ) {
+            continue;
+        }
+        if ( (int) $item->get_product_id() !== $certificate_product_id ) {
+            continue;
+        }
+
+        $existing_codes = (string) $item->get_meta( '_shk_certificate_codes', true );
+        if ( '' !== trim( $existing_codes ) ) {
+            continue;
+        }
+
+        $payload_json = (string) $item->get_meta( '_shk_certificate_payload', true );
+        $payload = array();
+        if ( '' !== $payload_json ) {
+            $decoded = json_decode( $payload_json, true );
+            if ( is_array( $decoded ) ) {
+                $payload = $decoded;
+            }
+        }
+
+        $qty = max( 1, (int) $item->get_quantity() );
+        $amount = isset( $payload['amount'] ) ? (float) $payload['amount'] : 0.0;
+        if ( $amount <= 0 ) {
+            $line_total = (float) $item->get_total();
+            if ( $line_total > 0 ) {
+                $amount = $line_total / $qty;
+            }
+        }
+        if ( $amount <= 0 ) {
+            continue;
+        }
+
+        $recipient_email = isset( $payload['recipient_email'] ) ? sanitize_email( (string) $payload['recipient_email'] ) : '';
+        $buyer_email = isset( $payload['buyer_email'] ) ? sanitize_email( (string) $payload['buyer_email'] ) : sanitize_email( (string) $order->get_billing_email() );
+        $send_mode = isset( $payload['send_mode'] ) ? sanitize_key( (string) $payload['send_mode'] ) : 'one';
+        $target_email = ( 'two' === $send_mode || '' === $recipient_email ) ? $buyer_email : $recipient_email;
+
+        $recipient_name = isset( $payload['recipient_name'] ) ? sanitize_text_field( (string) $payload['recipient_name'] ) : '';
+        $buyer_name = isset( $payload['buyer_name'] ) ? sanitize_text_field( (string) $payload['buyer_name'] ) : '';
+
+        $codes = array();
+        for ( $i = 0; $i < $qty; $i++ ) {
+            $code = shikkosa_create_certificate_coupon_local( $amount, (int) $order->get_id(), (int) $item_id, $target_email );
+            if ( '' === $code ) {
+                continue;
+            }
+            $codes[] = $code;
+            shikkosa_send_certificate_email_local( $target_email, $code, $amount, (int) $order->get_id(), $recipient_name, $buyer_name );
+        }
+
+        if ( ! empty( $codes ) ) {
+            $item->update_meta_data( '_shk_certificate_codes', implode( ', ', $codes ) );
+            $item->save();
+            $order->add_order_note( 'Сгенерированы коды сертификата: ' . implode( ', ', $codes ) );
+        }
+    }
+}
+
+add_action(
+    'woocommerce_order_status_processing',
+    function( $order_id ) {
+        shikkosa_issue_certificate_coupons_from_order_local( $order_id );
+    },
+    20
+);
+add_action(
+    'woocommerce_order_status_completed',
+    function( $order_id ) {
+        shikkosa_issue_certificate_coupons_from_order_local( $order_id );
+    },
+    20
+);
+
 function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
     if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
         return $price;
