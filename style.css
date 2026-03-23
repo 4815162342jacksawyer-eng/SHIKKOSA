@@ -415,6 +415,25 @@ body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-c
     padding-top: 0;
 }
 
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-checkout-item-remove {
+    margin-top: 8px;
+    display: inline-block;
+    border: none;
+    background: transparent;
+    color: #8d8d8d;
+    font-family: "Futura PT", Sans-serif !important;
+    font-size: 14px;
+    line-height: 1.2;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+}
+
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-checkout-item-remove:hover,
+body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .shk-checkout-item-remove:focus-visible {
+    color: var(--e-global-color-primary);
+}
+
 body.woocommerce-checkout .wp-block-woocommerce-checkout.wc-block-checkout.shk-checkout-donor .wc-block-components-address-form {
     display: grid;
     gap: 12px;

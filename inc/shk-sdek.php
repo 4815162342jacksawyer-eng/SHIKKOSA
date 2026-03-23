@@ -1823,3 +1823,100 @@ function shikkosa_sdek_checkout_notes_blocks() {
     </script>
     <?php
 }
+
+function shikkosa_checkout_selected_shipping_is_cdek_local() {
+    $methods = array();
+
+    if ( isset( $_POST['shipping_method'] ) ) {
+        $posted = wp_unslash( $_POST['shipping_method'] );
+        if ( is_array( $posted ) ) {
+            $methods = array_merge( $methods, array_map( 'strval', $posted ) );
+        } elseif ( is_scalar( $posted ) ) {
+            $methods[] = (string) $posted;
+        }
+    }
+
+    if ( function_exists( 'WC' ) && WC()->session ) {
+        $chosen = WC()->session->get( 'chosen_shipping_methods', array() );
+        if ( is_array( $chosen ) ) {
+            $methods = array_merge( $methods, array_map( 'strval', $chosen ) );
+        }
+    }
+
+    foreach ( $methods as $method ) {
+        $hay = function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $method ) : strtolower( (string) $method );
+        if ( false !== strpos( $hay, 'cdek' ) || false !== strpos( $hay, 'sdek' ) || false !== strpos( $hay, 'сдэк' ) ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function shikkosa_is_unknown_tariff_message_local( $message ) {
+    $msg = function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $message ) : strtolower( (string) $message );
+    return ( false !== strpos( $msg, 'unknown tariff' ) ) || ( false !== strpos( $msg, 'tariff 0' ) );
+}
+
+add_action(
+    'woocommerce_after_checkout_validation',
+    function( $data, $errors ) {
+        if ( ! $errors || ! is_a( $errors, 'WP_Error' ) ) {
+            return;
+        }
+        if ( shikkosa_checkout_selected_shipping_is_cdek_local() ) {
+            return;
+        }
+
+        foreach ( (array) $errors->errors as $code => $messages ) {
+            $matched = false;
+            foreach ( (array) $messages as $message ) {
+                if ( shikkosa_is_unknown_tariff_message_local( $message ) ) {
+                    $matched = true;
+                    break;
+                }
+            }
+            if ( $matched ) {
+                $errors->remove( $code );
+            }
+        }
+    },
+    9999,
+    2
+);
+
+add_action(
+    'woocommerce_checkout_process',
+    function() {
+        if ( shikkosa_checkout_selected_shipping_is_cdek_local() ) {
+            return;
+        }
+        $errors = wc_get_notices( 'error' );
+        if ( empty( $errors ) || ! is_array( $errors ) ) {
+            return;
+        }
+
+        $filtered = array();
+        foreach ( $errors as $notice ) {
+            $text = is_array( $notice ) && isset( $notice['notice'] ) ? (string) $notice['notice'] : '';
+            if ( shikkosa_is_unknown_tariff_message_local( $text ) ) {
+                continue;
+            }
+            $filtered[] = $notice;
+        }
+
+        if ( count( $filtered ) === count( $errors ) ) {
+            return;
+        }
+
+        wc_clear_notices();
+        foreach ( $filtered as $notice ) {
+            $text = is_array( $notice ) && isset( $notice['notice'] ) ? (string) $notice['notice'] : '';
+            $data = is_array( $notice ) && isset( $notice['data'] ) && is_array( $notice['data'] ) ? $notice['data'] : array();
+            if ( '' !== $text ) {
+                wc_add_notice( $text, 'error', $data );
+            }
+        }
+    },
+    9999
+);

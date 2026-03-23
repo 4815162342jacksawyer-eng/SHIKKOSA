@@ -309,6 +309,110 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
       }
 
+      function getCartItemsFromStore() {
+        var wpData = window.wp && window.wp.data ? window.wp.data : null;
+        if (!wpData || !wpData.select) return [];
+        var storeKey = 'wc/store/cart';
+        var selector = wpData.select(storeKey);
+        if (!selector) return [];
+
+        if (typeof selector.getCartItems === 'function') {
+          var items = selector.getCartItems();
+          return Array.isArray(items) ? items : [];
+        }
+        if (typeof selector.getCartData === 'function') {
+          var cartData = selector.getCartData() || {};
+          var list = cartData.items || [];
+          return Array.isArray(list) ? list : [];
+        }
+        return [];
+      }
+
+      function removeCheckoutItemByKey(itemKey) {
+        var wpData = window.wp && window.wp.data ? window.wp.data : null;
+        if (!wpData || !wpData.dispatch || !itemKey) return false;
+        var storeKey = 'wc/store/cart';
+        var dispatch = wpData.dispatch(storeKey);
+        if (!dispatch) return false;
+
+        if (typeof dispatch.removeItemFromCart === 'function') {
+          dispatch.removeItemFromCart(itemKey);
+          return true;
+        }
+        if (typeof dispatch.removeCartItem === 'function') {
+          dispatch.removeCartItem(itemKey);
+          return true;
+        }
+        return false;
+      }
+
+      function findItemKeyForRow(row, fallbackIndex) {
+        if (!row) return '';
+        var directKeys = [
+          row.getAttribute('data-cart-item-key'),
+          row.getAttribute('data-item-key'),
+          row.dataset ? row.dataset.cartItemKey : '',
+          row.dataset ? row.dataset.itemKey : ''
+        ];
+        for (var i = 0; i < directKeys.length; i++) {
+          if (directKeys[i]) return String(directKeys[i]);
+        }
+
+        var cartItems = getCartItemsFromStore();
+        if (cartItems.length && fallbackIndex >= 0 && fallbackIndex < cartItems.length) {
+          var item = cartItems[fallbackIndex] || {};
+          return String(item.key || '');
+        }
+        return '';
+      }
+
+      function ensureCheckoutRemoveButtons(root) {
+        if (!root) return;
+        var rows = root.querySelectorAll('.shk-main-order-items .wc-block-components-order-summary-item');
+        if (!rows.length) return;
+
+        rows.forEach(function(row, idx){
+          var content = row.querySelector('.wc-block-components-order-summary-item__description');
+          if (!content) content = row;
+
+          var btn = row.querySelector('.shk-checkout-item-remove');
+          if (!btn) {
+            btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'shk-checkout-item-remove';
+            btn.textContent = 'Удалить';
+            content.appendChild(btn);
+          }
+
+          var itemKey = findItemKeyForRow(row, idx);
+          if (itemKey) {
+            btn.dataset.itemKey = itemKey;
+            btn.disabled = false;
+          } else {
+            btn.dataset.itemKey = '';
+            btn.disabled = true;
+          }
+
+          if (!btn.dataset.shkBound) {
+            btn.addEventListener('click', function(e){
+              e.preventDefault();
+              var key = String(btn.dataset.itemKey || '');
+              if (!key) return;
+              btn.disabled = true;
+              var removed = removeCheckoutItemByKey(key);
+              if (!removed) {
+                btn.disabled = false;
+                return;
+              }
+              setTimeout(function(){
+                btn.disabled = false;
+              }, 1500);
+            });
+            btn.dataset.shkBound = '1';
+          }
+        });
+      }
+
       function ensurePrivacyConsentInSummary(root) {
         if (!root) return;
 
@@ -468,6 +572,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
+        ensureCheckoutRemoveButtons(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
 
@@ -496,6 +601,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
+        ensureCheckoutRemoveButtons(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
       });
@@ -508,6 +614,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
+        ensureCheckoutRemoveButtons(root);
         movePlaceOrderButtonIntoSummary(root);
         ensurePrivacyConsentInSummary(root);
       });
