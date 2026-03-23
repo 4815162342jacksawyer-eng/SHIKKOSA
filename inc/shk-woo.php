@@ -1022,8 +1022,21 @@ add_action(
               });
           }
 
+          function isCertificateSubmitButton(el){
+            if (!el) return false;
+            var txt = String(el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!txt) return false;
+            return txt.indexOf('приобрести сертификат') !== -1;
+          }
+
           document.addEventListener('click', function(e){
             var btn = e.target && e.target.closest ? e.target.closest('#' + formId + ' .forminator-pagination-submit') : null;
+            if (!btn) {
+              var anyBtn = e.target && e.target.closest ? e.target.closest('#' + formId + ' .forminator-button') : null;
+              if (anyBtn && isCertificateSubmitButton(anyBtn)) {
+                btn = anyBtn;
+              }
+            }
             if (!btn) return;
             var form = getForm();
             if (!form) return;
@@ -1045,6 +1058,20 @@ add_action(
             }
             submitCertificateForm(form);
           }, true);
+
+          var observer = new MutationObserver(function(){
+            var form = getForm();
+            if (!form || submitInProgress) return;
+            var msg = form.querySelector('.forminator-response-message');
+            if (!msg) return;
+            var isVisible = msg.getAttribute('aria-hidden') !== 'true' || msg.classList.contains('forminator-success');
+            var text = String(msg.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!isVisible) return;
+            if (text.indexOf('спасибо') !== -1 || text.indexOf('обратились') !== -1 || text.indexOf('успеш') !== -1) {
+              submitCertificateForm(form);
+            }
+          });
+          observer.observe(document.body, { childList: true, subtree: true, characterData: true });
         })();
         </script>
         <?php
