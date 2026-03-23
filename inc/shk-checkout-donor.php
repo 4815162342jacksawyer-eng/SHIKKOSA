@@ -340,11 +340,20 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           if (!el) return false;
           var name = String(el.name || '').toLowerCase();
           var id = String(el.id || '').toLowerCase();
+          var cls = String(el.className || '').toLowerCase();
+          var ph = String(el.getAttribute && el.getAttribute('placeholder') || '').toLowerCase();
+          var aria = String(el.getAttribute && el.getAttribute('aria-label') || '').toLowerCase();
+          var wrapped = !!(el.closest && el.closest('[class*="cdek" i], [id*="cdek" i], [class*="sdek" i], [id*="sdek" i]'));
           return (
             name.indexOf('cdek') !== -1 ||
             name.indexOf('sdek') !== -1 ||
             id.indexOf('cdek') !== -1 ||
-            id.indexOf('sdek') !== -1
+            id.indexOf('sdek') !== -1 ||
+            cls.indexOf('cdek') !== -1 ||
+            cls.indexOf('sdek') !== -1 ||
+            ph.indexOf('поиск') !== -1 ||
+            aria.indexOf('поиск') !== -1 ||
+            wrapped
           );
         }
 
@@ -371,8 +380,38 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         root.addEventListener('click', function(e){
           var node = e.target && e.target.closest ? e.target.closest('[role="option"], [class*="suggest"], [class*="dropdown-item"]') : null;
           if (!node) return;
+          var directText = normalizeCityName(String(node.textContent || ''));
+          if (directText && directText.length >= 3 && !isRegionLikeChunk(directText)) {
+            syncWooShippingCity(root, directText);
+            return;
+          }
           scheduleSync(220);
         }, true);
+      }
+
+      function ensureCdekMapBootstrap(root) {
+        if (!root) return;
+        var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+        if (!shippingOptions) return;
+        var selected = shippingOptions.querySelector('.wc-block-components-radio-control__input:checked');
+        if (!selected) return;
+        var opt = selected.closest('.wc-block-components-radio-control__option');
+        var hay = (
+          String(selected.value || '') + ' ' +
+          String(selected.id || '') + ' ' +
+          String(opt ? opt.textContent || '' : '')
+        ).toLowerCase();
+        var isCdekLike = (
+          hay.indexOf('cdek') !== -1 ||
+          hay.indexOf('sdek') !== -1 ||
+          hay.indexOf('сдэк') !== -1 ||
+          hay.indexOf('пвз') !== -1
+        );
+        if (!isCdekLike) return;
+
+        if (!getCurrentWooShippingCity(root)) {
+          applySoftFallbackCity(root, 'Москва');
+        }
       }
 
       function enforceAddressFieldVisibility(root) {
@@ -899,6 +938,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         enforceAddressFieldVisibility(root);
         syncShippingAddressAvailability(root);
         bindCdekMapCitySync(root);
+        ensureCdekMapBootstrap(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -935,6 +975,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         enforceAddressFieldVisibility(root);
         syncShippingAddressAvailability(root);
         bindCdekMapCitySync(root);
+        ensureCdekMapBootstrap(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -951,6 +992,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         enforceAddressFieldVisibility(root);
         syncShippingAddressAvailability(root);
         bindCdekMapCitySync(root);
+        ensureCdekMapBootstrap(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
