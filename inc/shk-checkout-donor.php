@@ -207,16 +207,28 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
             syncWooShippingCity(root, city);
           };
 
-          var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
-          if (shippingOptions) {
-            shippingOptions.addEventListener('click', function(evt) {
+          searchInput.addEventListener('focus', function() {
+            window.__shkActiveCdekSearchInput = searchInput;
+          });
+
+          if (document && !document.body.dataset.shkCdekSuggestGlobalBound) {
+            document.addEventListener('click', function(evt) {
+              var activeInput = window.__shkActiveCdekSearchInput || null;
+              if (!activeInput) return;
               var t = evt.target;
               if (!t) return;
-              var suggestionNode = t.closest('[role="option"], li, button, .suggest-item, .autocomplete-suggestion');
+              var suggestionNode = t.closest('[role="option"], [role="listbox"] *, .autocomplete-suggestion, .suggest-item');
               if (!suggestionNode) return;
-              if (suggestionNode === searchInput || suggestionNode.contains(searchInput)) return;
-              window.setTimeout(pushCityFromSelectedSuggestion, 60);
+              window.setTimeout(function() {
+                var raw = String(activeInput.value || '').trim();
+                if (!raw || raw.length < 2) return;
+                var normalized = raw.replace(/\s+/g, ' ');
+                var city = normalized.split(',')[0].trim();
+                if (!city) city = normalized;
+                syncWooShippingCity(root, city);
+              }, 80);
             }, true);
+            document.body.dataset.shkCdekSuggestGlobalBound = '1';
           }
 
           searchInput.dataset.shkCdekCityBound = '1';
