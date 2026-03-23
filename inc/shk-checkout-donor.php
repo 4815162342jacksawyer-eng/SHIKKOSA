@@ -66,10 +66,12 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         if (!optionInputs.length) return;
 
         var firstValue = String(optionInputs[0].value || '');
+        var selectedInput = optionInputs[0];
         var selectedValue = firstValue;
         optionInputs.forEach(function(input) {
           if (input.checked) {
             selectedValue = String(input.value || '');
+            selectedInput = input;
           }
         });
 
@@ -78,7 +80,22 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           shippingFields.classList.add('shk-shipping-address-disabled');
           shippingFields.setAttribute('aria-disabled', 'true');
           shippingFields.style.setProperty('display', 'none', 'important');
-          syncWooShippingCity(root, 'Москва');
+
+          var selectedOption = selectedInput ? selectedInput.closest('.wc-block-components-radio-control__option') : null;
+          var selectedHay = (
+            String(selectedValue || '') + ' ' +
+            String(selectedInput && selectedInput.id ? selectedInput.id : '') + ' ' +
+            String(selectedOption ? selectedOption.textContent || '' : '')
+          ).toLowerCase();
+          var isCdekLike =
+            selectedHay.indexOf('cdek') !== -1 ||
+            selectedHay.indexOf('sdek') !== -1 ||
+            selectedHay.indexOf('сдэк') !== -1 ||
+            selectedHay.indexOf('пвз') !== -1;
+
+          if (isCdekLike && !getCurrentWooShippingCity(root)) {
+            syncWooShippingCity(root, 'Москва');
+          }
         } else {
           shippingFields.classList.remove('shk-shipping-address-disabled');
           shippingFields.removeAttribute('aria-disabled');
@@ -86,10 +103,40 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
       }
 
+      function getCurrentWooShippingCity(root) {
+        var city = '';
+        if (root) {
+          var cityInput = root.querySelector('#shipping-city, input[name="shipping_city"], input[name="shipping-city"], .wc-block-components-address-form__city input');
+          city = cityInput ? String(cityInput.value || '').trim() : '';
+          if (city) return city;
+        }
+
+        var wpData = window.wp && window.wp.data ? window.wp.data : null;
+        if (wpData && wpData.select) {
+          var cartSelect = wpData.select('wc/store/cart');
+          if (cartSelect) {
+            if (typeof cartSelect.getShippingAddress === 'function') {
+              var addr = cartSelect.getShippingAddress() || {};
+              city = String(addr.city || '').trim();
+            } else if (typeof cartSelect.getCartData === 'function') {
+              var cart = cartSelect.getCartData() || {};
+              var ship = cart.shippingAddress || cart.shipping_address || {};
+              city = String(ship.city || '').trim();
+            }
+          }
+        }
+
+        return city;
+      }
+
       function syncWooShippingCity(root, cityValue) {
         var value = String(cityValue || '').trim();
         if (!value) return;
         if (shkLastSyncedCity === value) return;
+        if (getCurrentWooShippingCity(root) === value) {
+          shkLastSyncedCity = value;
+          return;
+        }
 
         var cityInputs = [];
         if (root) {
