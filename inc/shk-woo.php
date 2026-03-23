@@ -2197,158 +2197,42 @@ function shikkosa_get_price_html_with_old_price_local( $product ) {
     if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
         return '';
     }
-
-    $default_html = $product->get_price_html();
-    $current_price = (float) shikkosa_resolve_current_price_local( $product );
-    if ( $current_price <= 0 ) {
-        return $default_html;
-    }
-
-    $old_price = shikkosa_resolve_old_price_local( $product, $current_price );
-
-    if ( $old_price > $current_price ) {
-        return '<del>' . wc_price( $old_price ) . '</del> <ins>' . wc_price( $current_price ) . '</ins>';
-    }
-
-    return $default_html;
+    // Old SHK price logic is deprecated; use native Woo price HTML.
+    return $product->get_price_html();
 }
 
 add_action( 'woocommerce_product_options_pricing', 'shikkosa_admin_old_price_field_local' );
 add_action( 'woocommerce_product_options_general_product_data', 'shikkosa_admin_old_price_field_local' );
 function shikkosa_admin_old_price_field_local() {
-    static $rendered = false;
-    if ( $rendered ) {
-        return;
-    }
-    $rendered = true;
-
-    if ( ! function_exists( 'woocommerce_wp_text_input' ) ) {
-        return;
-    }
-
-    woocommerce_wp_text_input(
-        array(
-            'id'          => '_shk_price_before_discount',
-            'label'       => 'Старая цена (SHK)',
-            'description' => 'Fallback-старая цена для фронта (если regular/sale заданы некорректно).',
-            'desc_tip'    => true,
-            'type'        => 'text',
-            'wrapper_class' => 'show_if_simple',
-        )
-    );
+    // Intentionally left empty: old SHK field is removed.
 }
 
 add_filter( 'woocommerce_get_price_html', 'shikkosa_filter_price_html_with_old_price_local', 20, 2 );
 add_filter( 'woocommerce_variable_price_html', 'shikkosa_filter_price_html_with_old_price_local', 20, 2 );
 add_filter( 'woocommerce_variable_sale_price_html', 'shikkosa_filter_price_html_with_old_price_local', 20, 2 );
 function shikkosa_filter_price_html_with_old_price_local( $price_html, $product ) {
-    if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
-        return $price_html;
-    }
-    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
-        return $price_html;
-    }
-
-    $current_price = (float) shikkosa_resolve_current_price_local( $product );
-    if ( $current_price <= 0 ) {
-        return $price_html;
-    }
-
-    $old_price = shikkosa_resolve_old_price_local( $product, $current_price );
-    if ( $old_price > $current_price ) {
-        return '<del>' . wc_price( $old_price ) . '</del> <ins>' . wc_price( $current_price ) . '</ins>';
-    }
-
+    // Old SHK price logic is deprecated.
     return $price_html;
 }
 
 add_action( 'woocommerce_admin_process_product_object', 'shikkosa_admin_old_price_field_save_local' );
 add_action( 'woocommerce_process_product_meta', 'shikkosa_admin_old_price_field_save_legacy_local', 20, 1 );
 function shikkosa_admin_old_price_field_save_local( $product ) {
-    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
-        return;
-    }
-
-    $raw = isset( $_POST['_shk_price_before_discount'] ) ? wp_unslash( $_POST['_shk_price_before_discount'] ) : '';
-    $price = shikkosa_parse_price_amount_local( $raw );
-    if ( '' === $price ) {
-        $product->delete_meta_data( '_shk_price_before_discount' );
-        $product->delete_meta_data( 'price_before_discount' );
-    } else {
-        $product->update_meta_data( '_shk_price_before_discount', $price );
-        $product->update_meta_data( 'price_before_discount', $price );
-    }
-
-    if ( $product->is_type( 'variable' ) ) {
-        shikkosa_sync_parent_old_price_from_variations_local( (int) $product->get_id() );
-    }
+    // Old SHK price logic is deprecated.
 }
 
 function shikkosa_admin_old_price_field_save_legacy_local( $post_id ) {
-    $post_id = (int) $post_id;
-    if ( $post_id <= 0 ) {
-        return;
-    }
-
-    $raw = isset( $_POST['_shk_price_before_discount'] ) ? wp_unslash( $_POST['_shk_price_before_discount'] ) : '';
-    $price = shikkosa_parse_price_amount_local( $raw );
-    if ( '' === $price ) {
-        delete_post_meta( $post_id, '_shk_price_before_discount' );
-        delete_post_meta( $post_id, 'price_before_discount' );
-    } else {
-        update_post_meta( $post_id, '_shk_price_before_discount', $price );
-        update_post_meta( $post_id, 'price_before_discount', $price );
-    }
-
-    $product = wc_get_product( $post_id );
-    if ( $product && $product->is_type( 'variable' ) ) {
-        shikkosa_sync_parent_old_price_from_variations_local( $post_id );
-    }
+    // Old SHK price logic is deprecated.
 }
 
 add_action( 'woocommerce_variation_options_pricing', 'shikkosa_variation_old_price_field_local', 20, 3 );
 function shikkosa_variation_old_price_field_local( $loop, $variation_data, $variation ) {
-    $variation_id = is_object( $variation ) && isset( $variation->ID ) ? (int) $variation->ID : 0;
-    $value = $variation_id > 0 ? (string) get_post_meta( $variation_id, '_shk_price_before_discount', true ) : '';
-    ?>
-    <p class="form-row form-row-full">
-        <label>Старая цена (SHK)</label>
-        <input
-            type="text"
-            class="short"
-            name="shk_variation_old_price[<?php echo esc_attr( (string) $loop ); ?>]"
-            value="<?php echo esc_attr( $value ); ?>"
-            placeholder="Например: 32900"
-        />
-    </p>
-    <?php
+    // Old SHK price logic is deprecated.
 }
 
 add_action( 'woocommerce_save_product_variation', 'shikkosa_variation_old_price_field_save_local', 20, 2 );
 function shikkosa_variation_old_price_field_save_local( $variation_id, $loop ) {
-    $variation_id = (int) $variation_id;
-    if ( $variation_id <= 0 ) {
-        return;
-    }
-
-    $raw = '';
-    if ( isset( $_POST['shk_variation_old_price'] ) && isset( $_POST['shk_variation_old_price'][ $loop ] ) ) {
-        $raw = wp_unslash( $_POST['shk_variation_old_price'][ $loop ] );
-    }
-
-    $price = shikkosa_parse_price_amount_local( $raw );
-    if ( '' === $price ) {
-        delete_post_meta( $variation_id, '_shk_price_before_discount' );
-        delete_post_meta( $variation_id, 'price_before_discount' );
-    } else {
-        update_post_meta( $variation_id, '_shk_price_before_discount', $price );
-        update_post_meta( $variation_id, 'price_before_discount', $price );
-    }
-
-    $parent_id = (int) wp_get_post_parent_id( $variation_id );
-    if ( $parent_id > 0 ) {
-        shikkosa_sync_parent_old_price_from_variations_local( $parent_id );
-    }
+    // Old SHK price logic is deprecated.
 }
 
 function shikkosa_sync_parent_old_price_from_variations_local( $parent_product_id ) {
@@ -3149,6 +3033,92 @@ function shikkosa_is_product_list_screen_local() {
     return 'product' === $post_type;
 }
 
+function shikkosa_admin_collect_size_qty_rows_local( $product ) {
+    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+        return array();
+    }
+
+    $rows = array();
+    $product_id = (int) $product->get_id();
+
+    if ( $product->is_type( 'variable' ) ) {
+        $children = array_map( 'absint', (array) $product->get_children() );
+        foreach ( $children as $variation_id ) {
+            if ( $variation_id <= 0 ) {
+                continue;
+            }
+            $variation = wc_get_product( $variation_id );
+            if ( ! $variation || ! is_a( $variation, 'WC_Product_Variation' ) ) {
+                continue;
+            }
+
+            $attrs = (array) $variation->get_attributes();
+            $size = shikkosa_extract_size_from_attributes_local( $attrs );
+            if ( '' === $size ) {
+                $size = shikkosa_extract_size_from_sku_local( (string) $variation->get_sku() );
+            }
+            if ( '' === $size ) {
+                continue;
+            }
+
+            $qty = '';
+            if ( $variation->managing_stock() ) {
+                $qty_val = $variation->get_stock_quantity();
+                $qty = null === $qty_val ? '' : (string) (int) $qty_val;
+            }
+
+            $rows[] = array(
+                'size'         => (string) $size,
+                'qty'          => (string) $qty,
+                'variation_id' => (int) $variation_id,
+            );
+        }
+    } else {
+        $sizes = array_values( array_filter( array_map( 'trim', shikkosa_collect_product_sizes_local( $product_id ) ) ) );
+        if ( empty( $sizes ) ) {
+            return array();
+        }
+
+        $qty_map = get_post_meta( $product_id, '_shk_size_qty_map', true );
+        if ( ! is_array( $qty_map ) ) {
+            $decoded = json_decode( (string) $qty_map, true );
+            $qty_map = is_array( $decoded ) ? $decoded : array();
+        }
+
+        foreach ( $sizes as $size ) {
+            $qty = isset( $qty_map[ $size ] ) ? (string) $qty_map[ $size ] : '';
+            $rows[] = array(
+                'size'         => (string) $size,
+                'qty'          => (string) $qty,
+                'variation_id' => 0,
+            );
+        }
+    }
+
+    if ( count( $rows ) > 1 ) {
+        $order = shikkosa_size_scale_local();
+        $rank = array();
+        foreach ( $order as $i => $label ) {
+            $rank[ shikkosa_normalize_size_local( $label ) ] = (int) $i;
+        }
+        usort(
+            $rows,
+            static function ( $a, $b ) use ( $rank ) {
+                $an = shikkosa_normalize_size_local( (string) ( $a['size'] ?? '' ) );
+                $bn = shikkosa_normalize_size_local( (string) ( $b['size'] ?? '' ) );
+                $ar = $rank[ $an ] ?? 10000;
+                $br = $rank[ $bn ] ?? 10000;
+                if ( $ar === $br ) {
+                    return strcmp( (string) ( $a['size'] ?? '' ), (string) ( $b['size'] ?? '' ) );
+                }
+                return $ar <=> $br;
+            }
+        );
+    }
+
+    return $rows;
+}
+
 add_filter(
     'manage_edit-product_columns',
     function( $columns ) {
@@ -3201,8 +3171,9 @@ add_action(
             $sizes_meta = implode( '|', array_values( array_filter( array_map( 'trim', shikkosa_collect_product_sizes_local( $post_id ) ) ) ) );
         }
 
+        $size_qty_rows = shikkosa_admin_collect_size_qty_rows_local( $product );
         $stock_qty = '';
-        if ( $product->managing_stock() ) {
+        if ( empty( $size_qty_rows ) && $product->managing_stock() ) {
             $qty_val = $product->get_stock_quantity();
             $stock_qty = null === $qty_val ? '' : (string) (int) $qty_val;
         }
@@ -3216,10 +3187,27 @@ add_action(
         }
 
         if ( 'shk_qty' === $column ) {
-            echo '<div class="shk-inline-wrap">';
-            echo '<input type="number" class="shk-inline-input" data-field="stock_qty" value="' . esc_attr( $stock_qty ) . '" step="1" min="0" placeholder="0" />';
-            echo '<span class="shk-inline-status" aria-hidden="true"></span>';
-            echo '</div>';
+            if ( ! empty( $size_qty_rows ) ) {
+                echo '<div class="shk-size-qty-wrap">';
+                echo '<div class="shk-size-qty-sizes">';
+                foreach ( $size_qty_rows as $row ) {
+                    $size = (string) ( $row['size'] ?? '' );
+                    echo '<span class="shk-size-chip">' . esc_html( $size ) . '</span>';
+                }
+                echo '</div>';
+                echo '<div class="shk-size-qty-inputs">';
+                foreach ( $size_qty_rows as $row ) {
+                    $size = (string) ( $row['size'] ?? '' );
+                    $qty = (string) ( $row['qty'] ?? '' );
+                    $variation_id = (int) ( $row['variation_id'] ?? 0 );
+                    echo '<input type="number" class="shk-inline-input" data-field="size_qty" data-size="' . esc_attr( $size ) . '" data-variation-id="' . esc_attr( (string) $variation_id ) . '" value="' . esc_attr( $qty ) . '" step="1" min="0" placeholder="0" />';
+                }
+                echo '</div>';
+                echo '<span class="shk-inline-status" aria-hidden="true"></span>';
+                echo '</div>';
+                return;
+            }
+            echo '<div class="shk-inline-wrap"><input type="number" class="shk-inline-input" data-field="stock_qty" value="' . esc_attr( $stock_qty ) . '" step="1" min="0" placeholder="0" /><span class="shk-inline-status" aria-hidden="true"></span></div>';
             return;
         }
 
@@ -3227,14 +3215,12 @@ add_action(
         $sku = (string) $product->get_sku();
         $regular = (string) $product->get_regular_price();
         $sale = (string) $product->get_sale_price();
-        $old = (string) get_post_meta( $post_id, '_shk_price_before_discount', true );
 
         echo '<div class="shk-inline-grid">';
         echo '<label>Название<input type="text" class="shk-inline-input" data-field="title" value="' . esc_attr( $title ) . '" /></label>';
         echo '<label>SKU<input type="text" class="shk-inline-input" data-field="sku" value="' . esc_attr( $sku ) . '" /></label>';
         echo '<label>Regular<input type="text" class="shk-inline-input" data-field="regular_price" value="' . esc_attr( $regular ) . '" /></label>';
         echo '<label>Sale<input type="text" class="shk-inline-input" data-field="sale_price" value="' . esc_attr( $sale ) . '" /></label>';
-        echo '<label>Old SHK<input type="text" class="shk-inline-input" data-field="old_price" value="' . esc_attr( $old ) . '" /></label>';
         echo '<span class="shk-inline-status" aria-hidden="true"></span>';
         echo '</div>';
     },
@@ -3265,7 +3251,7 @@ add_action(
                 width: 12%;
             }
             .post-type-product .wp-list-table .column-shk_qty {
-                width: 8%;
+                width: 20%;
             }
             .post-type-product .wp-list-table .column-shk_inline {
                 width: 26%;
@@ -3296,6 +3282,30 @@ add_action(
             }
             .post-type-product .wp-list-table .column-shk_qty .shk-inline-input {
                 max-width: 85px;
+            }
+            .post-type-product .wp-list-table .shk-size-qty-wrap {
+                display: grid;
+                gap: 4px;
+                align-items: center;
+            }
+            .post-type-product .wp-list-table .shk-size-qty-sizes,
+            .post-type-product .wp-list-table .shk-size-qty-inputs {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+                gap: 4px;
+            }
+            .post-type-product .wp-list-table .shk-size-chip {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 22px;
+                padding: 0 6px;
+                border: 1px solid #c3c4c7;
+                border-radius: 4px;
+                font-size: 11px;
+                line-height: 1.1;
+                background: #f6f7f7;
+                white-space: nowrap;
             }
             .post-type-product .wp-list-table .shk-inline-input.shk-is-saving {
                 background: #f0f6fc;
@@ -3358,17 +3368,23 @@ add_action(
 
             $input.removeClass('shk-has-error').addClass('shk-is-saving');
 
+            var payload = {
+              action: 'shk_product_list_inline_save',
+              nonce: nonce,
+              post_id: postId,
+              field: field,
+              value: $input.val()
+            };
+            if (field === 'size_qty') {
+              payload.size = String($input.data('size') || '');
+              payload.variation_id = parseInt(String($input.data('variation-id') || '0'), 10) || 0;
+            }
+
             $.ajax({
               url: ajaxurl,
               method: 'POST',
               dataType: 'json',
-              data: {
-                action: 'shk_product_list_inline_save',
-                nonce: nonce,
-                post_id: postId,
-                field: field,
-                value: $input.val()
-              }
+              data: payload
             }).done(function(res){
               if (!res || !res.success) {
                 $input.addClass('shk-has-error');
@@ -3389,7 +3405,7 @@ add_action(
 
           $(document).on('input', '.post-type-product .wp-list-table .shk-inline-input', function(){
             var input = this;
-            var key = String(rowId(input)) + ':' + String($(input).data('field') || '');
+            var key = String(rowId(input)) + ':' + String($(input).data('field') || '') + ':' + String($(input).data('size') || '') + ':' + String($(input).data('variation-id') || '');
             if (timerMap[key]) {
               clearTimeout(timerMap[key]);
             }
@@ -3467,18 +3483,6 @@ function shikkosa_ajax_product_list_inline_save_local() {
             wp_send_json_success( array( 'value' => (string) $product->get_sale_price() ) );
         }
 
-        if ( 'old_price' === $field ) {
-            $price = shikkosa_parse_price_amount_local( $value_raw );
-            if ( '' === $price ) {
-                delete_post_meta( $post_id, '_shk_price_before_discount' );
-                delete_post_meta( $post_id, 'price_before_discount' );
-            } else {
-                update_post_meta( $post_id, '_shk_price_before_discount', $price );
-                update_post_meta( $post_id, 'price_before_discount', $price );
-            }
-            wp_send_json_success( array( 'value' => (string) $price ) );
-        }
-
         if ( 'stock_qty' === $field ) {
             $value = trim( (string) $value_raw );
             if ( '' === $value ) {
@@ -3493,6 +3497,55 @@ function shikkosa_ajax_product_list_inline_save_local() {
             $product->set_stock_quantity( $qty );
             $product->set_stock_status( $qty > 0 ? 'instock' : 'outofstock' );
             $product->save();
+            wp_send_json_success( array( 'value' => (string) $qty ) );
+        }
+
+        if ( 'size_qty' === $field ) {
+            $size = isset( $_POST['size'] ) ? sanitize_text_field( wp_unslash( $_POST['size'] ) ) : '';
+            $variation_id = isset( $_POST['variation_id'] ) ? absint( wp_unslash( $_POST['variation_id'] ) ) : 0;
+            $value = trim( (string) $value_raw );
+            $qty = '' === $value ? 0 : max( 0, (int) $value );
+            if ( '' === $size && $variation_id <= 0 ) {
+                wp_send_json_error( array( 'message' => 'Не передан размер.' ), 400 );
+            }
+
+            if ( $variation_id > 0 ) {
+                $variation = wc_get_product( $variation_id );
+                if ( ! $variation || ! is_a( $variation, 'WC_Product_Variation' ) ) {
+                    wp_send_json_error( array( 'message' => 'Вариация не найдена.' ), 404 );
+                }
+                if ( (int) $variation->get_parent_id() !== $post_id ) {
+                    wp_send_json_error( array( 'message' => 'Неверная вариация для товара.' ), 400 );
+                }
+                $variation->set_manage_stock( true );
+                $variation->set_stock_quantity( $qty );
+                $variation->set_stock_status( $qty > 0 ? 'instock' : 'outofstock' );
+                $variation->save();
+
+                $parent = wc_get_product( $post_id );
+                if ( $parent && is_a( $parent, 'WC_Product_Variable' ) ) {
+                    $parent->save();
+                }
+                wp_send_json_success( array( 'value' => (string) $qty ) );
+            }
+
+            $map = get_post_meta( $post_id, '_shk_size_qty_map', true );
+            if ( ! is_array( $map ) ) {
+                $decoded = json_decode( (string) $map, true );
+                $map = is_array( $decoded ) ? $decoded : array();
+            }
+            $map[ $size ] = (int) $qty;
+            update_post_meta( $post_id, '_shk_size_qty_map', $map );
+
+            $sum = 0;
+            foreach ( $map as $map_qty ) {
+                $sum += max( 0, (int) $map_qty );
+            }
+            $product->set_manage_stock( true );
+            $product->set_stock_quantity( $sum );
+            $product->set_stock_status( $sum > 0 ? 'instock' : 'outofstock' );
+            $product->save();
+
             wp_send_json_success( array( 'value' => (string) $qty ) );
         }
 
