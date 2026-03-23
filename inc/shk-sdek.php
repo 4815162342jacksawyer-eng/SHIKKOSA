@@ -72,6 +72,116 @@ function shikkosa_sdek_settings_default() {
     return $defaults;
 }
 
+function shikkosa_use_native_woo_shipping_mode() {
+    return true;
+}
+
+function shikkosa_shipping_instance_comment_fields( $fields ) {
+    $fields = is_array( $fields ) ? $fields : array();
+
+    if ( ! isset( $fields['shk_price_comment'] ) ) {
+        $fields['shk_price_comment'] = array(
+            'title'       => 'Комментарий к стоимости',
+            'type'        => 'text',
+            'description' => 'Показывается под способом доставки рядом с ценой.',
+            'default'     => '',
+            'desc_tip'    => true,
+        );
+    }
+
+    if ( ! isset( $fields['shk_delivery_comment'] ) ) {
+        $fields['shk_delivery_comment'] = array(
+            'title'       => 'Комментарий к доставке',
+            'type'        => 'text',
+            'description' => 'Показывается под способом доставки (срок/условия).',
+            'default'     => '',
+            'desc_tip'    => true,
+        );
+    }
+
+    return $fields;
+}
+
+function shikkosa_shipping_instance_comment_fields_with_tariff( $fields ) {
+    $fields = shikkosa_shipping_instance_comment_fields( $fields );
+
+    if ( ! isset( $fields['shk_sdek_tariff_code'] ) ) {
+        $fields['shk_sdek_tariff_code'] = array(
+            'title'       => 'Код тарифа CDEK',
+            'type'        => 'text',
+            'description' => 'Опционально. Только цифры.',
+            'default'     => '',
+            'desc_tip'    => true,
+        );
+    }
+
+    return $fields;
+}
+
+add_filter( 'woocommerce_shipping_instance_form_fields_flat_rate', 'shikkosa_shipping_instance_comment_fields', 40 );
+add_filter( 'woocommerce_shipping_instance_form_fields_free_shipping', 'shikkosa_shipping_instance_comment_fields', 40 );
+add_filter( 'woocommerce_shipping_instance_form_fields_local_pickup', 'shikkosa_shipping_instance_comment_fields', 40 );
+add_filter( 'woocommerce_shipping_instance_form_fields_official_cdek', 'shikkosa_shipping_instance_comment_fields_with_tariff', 40 );
+
+function shikkosa_rate_settings_by_instance( $method_id, $instance_id ) {
+    $method_id = (string) $method_id;
+    $instance_id = (int) $instance_id;
+    if ( '' === $method_id || $instance_id <= 0 ) {
+        return array();
+    }
+    $opt_key = 'woocommerce_' . $method_id . '_' . $instance_id . '_settings';
+    $settings = get_option( $opt_key, array() );
+    return is_array( $settings ) ? $settings : array();
+}
+
+function shikkosa_apply_instance_meta_to_rates( $rates ) {
+    $rates = is_array( $rates ) ? $rates : array();
+    foreach ( $rates as $rate_id => $rate ) {
+        if ( ! is_object( $rate ) || ! is_a( $rate, 'WC_Shipping_Rate' ) ) {
+            continue;
+        }
+
+        $method_id = method_exists( $rate, 'get_method_id' ) ? (string) $rate->get_method_id() : '';
+        $instance_id = method_exists( $rate, 'get_instance_id' ) ? (int) $rate->get_instance_id() : 0;
+        $settings = shikkosa_rate_settings_by_instance( $method_id, $instance_id );
+        if ( empty( $settings ) ) {
+            continue;
+        }
+
+        $price_comment = isset( $settings['shk_price_comment'] ) ? sanitize_text_field( (string) $settings['shk_price_comment'] ) : '';
+        $delivery_comment = isset( $settings['shk_delivery_comment'] ) ? sanitize_text_field( (string) $settings['shk_delivery_comment'] ) : '';
+        $tariff_code = isset( $settings['shk_sdek_tariff_code'] ) ? preg_replace( '/[^0-9]/', '', (string) $settings['shk_sdek_tariff_code'] ) : '';
+
+        if ( '' !== $price_comment ) {
+            $rate->add_meta_data( '_shk_price_comment', $price_comment, true );
+        }
+        if ( '' !== $delivery_comment ) {
+            $rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
+        }
+        if ( '' !== $tariff_code ) {
+            $rate->add_meta_data( '_shk_sdek_tariff_code', $tariff_code, true );
+        }
+
+        if ( 'official_cdek' === $method_id && '' !== $tariff_code ) {
+            $new_id = (string) $rate_id;
+            if ( false === strpos( $new_id, '__tariff_' ) ) {
+                $new_id .= '__tariff_' . $tariff_code;
+            }
+            if ( $new_id !== (string) $rate_id ) {
+                $rates[ $new_id ] = shikkosa_clone_rate_with_label_and_cost(
+                    $rate,
+                    $new_id,
+                    method_exists( $rate, 'get_label' ) ? (string) $rate->get_label() : '',
+                    method_exists( $rate, 'get_cost' ) ? (float) $rate->get_cost() : 0.0
+                );
+                unset( $rates[ $rate_id ] );
+            }
+        }
+    }
+
+    return $rates;
+}
+
 function shikkosa_sdek_settings() {
     $defaults = shikkosa_sdek_settings_default();
     $saved_raw = get_option( 'shikkosa_sdek_settings', null );
@@ -738,6 +848,10 @@ function shikkosa_sdek_build_static_rates_from_settings( $rates, $settings ) {
 
 add_filter( 'woocommerce_package_rates', 'shikkosa_split_cdek_pickup_rates', 120, 2 );
 function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
+    if ( shikkosa_use_native_woo_shipping_mode() ) {
+        return shikkosa_apply_instance_meta_to_rates( $rates );
+    }
+
     $settings = shikkosa_sdek_settings();
     $started_at = microtime( true );
     $rates = is_array( $rates ) ? $rates : array();
@@ -1820,6 +1934,102 @@ function shikkosa_sdek_settings_page() {
 add_action( 'wp_footer', 'shikkosa_sdek_checkout_notes_blocks', 130 );
 function shikkosa_sdek_checkout_notes_blocks() {
     if ( ! function_exists( 'is_checkout' ) || ! is_checkout() || is_order_received_page() ) {
+        return;
+    }
+
+    if ( shikkosa_use_native_woo_shipping_mode() ) {
+        $notes_by_rate = array();
+        if ( function_exists( 'WC' ) && WC()->shipping() ) {
+            $packages = WC()->shipping()->get_packages();
+            if ( is_array( $packages ) ) {
+                foreach ( $packages as $package ) {
+                    $rates = isset( $package['rates'] ) && is_array( $package['rates'] ) ? $package['rates'] : array();
+                    foreach ( $rates as $rate_id => $rate ) {
+                        if ( ! is_object( $rate ) || ! is_a( $rate, 'WC_Shipping_Rate' ) ) {
+                            continue;
+                        }
+                        $meta = method_exists( $rate, 'get_meta_data' ) ? (array) $rate->get_meta_data() : array();
+                        $price = isset( $meta['_shk_price_comment'] ) ? trim( (string) $meta['_shk_price_comment'] ) : '';
+                        $delivery = isset( $meta['_shk_delivery_comment'] ) ? trim( (string) $meta['_shk_delivery_comment'] ) : '';
+                        if ( '' === $price && '' === $delivery ) {
+                            continue;
+                        }
+                        $notes_by_rate[ (string) $rate_id ] = array(
+                            'price' => $price,
+                            'delivery' => $delivery,
+                        );
+                    }
+                }
+            }
+        }
+        ?>
+        <script>
+        (function () {
+          var notesByRate = <?php echo wp_json_encode( $notes_by_rate ); ?>;
+
+          function findNoteByRateValue(raw) {
+            var value = String(raw || '');
+            if (!value) return null;
+            if (notesByRate[value]) return notesByRate[value];
+            var key = Object.keys(notesByRate).find(function(k) {
+              return value.indexOf(k) !== -1 || k.indexOf(value) !== -1;
+            });
+            return key ? notesByRate[key] : null;
+          }
+
+          function applyNotes() {
+            var options = document.querySelectorAll('.wc-block-checkout__shipping-option .wc-block-components-radio-control__option');
+            if (!options.length) return;
+
+            options.forEach(function(opt){
+              var input = opt.querySelector('.wc-block-components-radio-control__input');
+              if (!input) return;
+              var noteData = findNoteByRateValue(input.value || '');
+              var layout = opt.querySelector('.wc-block-components-radio-control__option-layout');
+              if (!layout) return;
+
+              var existing = opt.querySelector('.shk-sdek-note');
+              if (!noteData) {
+                if (existing) existing.innerHTML = '';
+                return;
+              }
+
+              if (!existing) {
+                existing = document.createElement('div');
+                existing.className = 'shk-sdek-note';
+                layout.appendChild(existing);
+              }
+
+              var price = String(noteData.price || '').trim();
+              var delivery = String(noteData.delivery || '').trim();
+              if (!price && !delivery) {
+                existing.innerHTML = '';
+                return;
+              }
+
+              var html = '';
+              if (price) {
+                html += '<div class="shk-sdek-note__price">' + price.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+              }
+              if (delivery) {
+                html += '<div class="shk-sdek-note__delivery">' + delivery.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+              }
+              existing.innerHTML = html;
+            });
+          }
+
+          var i = 0;
+          var iv = setInterval(function(){
+            i++;
+            applyNotes();
+            if (i > 120) clearInterval(iv);
+          }, 250);
+
+          document.addEventListener('change', applyNotes);
+          document.addEventListener('wc-blocks_checkout_update', applyNotes);
+        })();
+        </script>
+        <?php
         return;
     }
 
