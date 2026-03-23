@@ -635,16 +635,14 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
 
     $split_enabled = ( 'yes' === (string) $settings['enabled'] );
     $show_all_before_address = ( 'yes' === (string) ( $settings['show_all_before_address'] ?? 'yes' ) );
-    $has_address = shikkosa_sdek_has_destination_address( $package );
-
-    if ( $show_all_before_address && ! $has_address ) {
+    if ( $show_all_before_address ) {
         $pre_rates = shikkosa_sdek_build_prerates_without_address( $rates, $settings );
         $pre_rates = shikkosa_sdek_append_custom_rates( $pre_rates, $settings );
         if ( ! empty( $pre_rates ) ) {
             if ( 'yes' === (string) $settings['debug_timing'] ) {
                 $logger = wc_get_logger();
                 $logger->info(
-                    '[SHK SDEK] package_rates: preaddress mode enabled, in=' . count( $rates ) . ', out=' . count( $pre_rates ) . ', elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms',
+                    '[SHK SDEK] package_rates: stable pre-rates mode enabled, in=' . count( $rates ) . ', out=' . count( $pre_rates ) . ', elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms',
                     array( 'source' => 'shk-sdek' )
                 );
             }

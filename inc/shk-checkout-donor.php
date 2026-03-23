@@ -15,7 +15,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       var shkLastSyncedCity = '';
       var shkFallbackCityApplied = false;
       var shkDebug = {
-        enabled: true,
+        enabled: false,
         prefix: '[SHK checkout]'
       };
 
