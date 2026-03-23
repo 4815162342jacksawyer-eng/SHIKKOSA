@@ -229,6 +229,49 @@ document.addEventListener('DOMContentLoaded', function(){
 add_action('wp_footer', function(){ ?>
 <script>
 (function(){
+  function parseLoopPriceValue(raw){
+    var text = String(raw || '').replace(/\s+/g, ' ');
+    var normalized = text
+      .replace(/\u00a0/g, '')
+      .replace(/[^\d,.\-]/g, '')
+      .replace(',', '.');
+    var value = parseFloat(normalized);
+    return isFinite(value) ? value : 0;
+  }
+
+  function refreshLoop4016DiscountTags(root){
+    var scope = root || document;
+    scope.querySelectorAll('.elementor-4016.e-loop-item').forEach(function(card){
+      if (!card) return;
+
+      var tagText = card.querySelector('.shk-product-tag .elementor-shortcode');
+      if (!tagText) return;
+
+      var priceBox = card.querySelector('.elementor-element.elementor-element-848c657 .elementor-image-box-content');
+      if (!priceBox) return;
+
+      var title = priceBox.querySelector('.elementor-image-box-title');
+      var desc = priceBox.querySelector('.elementor-image-box-description');
+      if (!title || !desc) return;
+
+      var titlePrice = parseLoopPriceValue(title.textContent || '');
+      var descPrice = parseLoopPriceValue(desc.textContent || '');
+      if (!(titlePrice > 0) || !(descPrice > 0)) return;
+
+      var original = Math.max(titlePrice, descPrice);
+      var current = Math.min(titlePrice, descPrice);
+      if (!(original > current)) return;
+
+      var percent = Math.round(((original - current) / original) * 100);
+      if (!(percent > 0)) return;
+
+      var discountText = '-' + String(percent) + '%';
+      if (String(tagText.textContent || '').trim() !== discountText) {
+        tagText.textContent = discountText;
+      }
+    });
+  }
+
   function swapLoop4016PriceRows(root){
     var scope = root || document;
     scope.querySelectorAll('.elementor-4016 .elementor-element.elementor-element-848c657 .elementor-image-box-content').forEach(function(box){
@@ -251,8 +294,10 @@ add_action('wp_footer', function(){ ?>
 
   function bootLoop4016Swap(){
     swapLoop4016PriceRows(document);
+    refreshLoop4016DiscountTags(document);
     var obs = new MutationObserver(function(){
       swapLoop4016PriceRows(document);
+      refreshLoop4016DiscountTags(document);
     });
     obs.observe(document.body, { childList: true, subtree: true });
   }
