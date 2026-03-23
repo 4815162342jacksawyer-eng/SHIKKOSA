@@ -159,6 +159,57 @@ function shikkosa_normalized_raw_price_pair_local( $product_id ) {
     return array( 0.0, 0.0 );
 }
 
+function shikkosa_is_newproducts_product_local( $product ) {
+    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+        return false;
+    }
+    $product_id = (int) $product->get_id();
+    if ( $product_id <= 0 ) {
+        return false;
+    }
+    return has_term( 'newproducts', 'product_cat', $product_id );
+}
+
+add_filter(
+    'woocommerce_product_is_on_sale',
+    function( $is_on_sale, $product ) {
+        if ( is_admin() && ! wp_doing_ajax() ) {
+            return $is_on_sale;
+        }
+        if ( shikkosa_is_newproducts_product_local( $product ) ) {
+            return true;
+        }
+        return $is_on_sale;
+    },
+    20,
+    2
+);
+
+add_filter(
+    'woocommerce_sale_flash',
+    function( $html, $post, $product ) {
+        if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+            return $html;
+        }
+
+        if ( shikkosa_is_newproducts_product_local( $product ) ) {
+            return '<span class="onsale">NEW</span>';
+        }
+
+        list( $regular, $sale ) = shikkosa_normalized_raw_price_pair_local( (int) $product->get_id() );
+        if ( $regular > 0 && $sale > 0 && $sale < $regular ) {
+            $percent = (int) round( ( ( $regular - $sale ) / $regular ) * 100 );
+            if ( $percent > 0 ) {
+                return '<span class="onsale">-' . esc_html( (string) $percent ) . '%</span>';
+            }
+        }
+
+        return $html;
+    },
+    20,
+    3
+);
+
 function shikkosa_normalized_regular_price_filter_local( $price, $product ) {
     if ( ! shikkosa_should_apply_runtime_price_overrides_local() ) {
         return $price;
