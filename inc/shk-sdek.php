@@ -247,11 +247,13 @@ function shikkosa_sdek_sanitize_custom_rates( $raw_rates ) {
         $price = isset( $row['price'] ) && is_scalar( $row['price'] ) ? trim( (string) $row['price'] ) : '';
         $price_comment = isset( $row['price_comment'] ) && is_scalar( $row['price_comment'] ) ? sanitize_text_field( (string) $row['price_comment'] ) : '';
         $delivery_comment = isset( $row['delivery_comment'] ) && is_scalar( $row['delivery_comment'] ) ? sanitize_text_field( (string) $row['delivery_comment'] ) : '';
+        $tariff_code_raw = isset( $row['tariff_code'] ) && is_scalar( $row['tariff_code'] ) ? (string) $row['tariff_code'] : '';
+        $tariff_code = preg_replace( '/[^0-9]/', '', $tariff_code_raw );
 
         if ( '' !== $price ) {
             $price = (string) wc_format_decimal( $price );
         }
-        if ( '' === $label && '' === $price && '' === $price_comment && '' === $delivery_comment ) {
+        if ( '' === $label && '' === $price && '' === $price_comment && '' === $delivery_comment && '' === $tariff_code ) {
             continue;
         }
         $clean[] = array(
@@ -260,6 +262,7 @@ function shikkosa_sdek_sanitize_custom_rates( $raw_rates ) {
             'price' => $price,
             'price_comment' => $price_comment,
             'delivery_comment' => $delivery_comment,
+            'tariff_code' => $tariff_code,
         );
     }
     return $clean;
@@ -475,14 +478,14 @@ function shikkosa_sdek_has_destination_address( $package ) {
     return ( '' !== $city || '' !== $address1 );
 }
 
-function shikkosa_sdek_synthetic_rate( $rate_id, $label, $cost ) {
+function shikkosa_sdek_synthetic_rate( $rate_id, $label, $cost, $method_id = 'official_cdek', $instance_id = 0 ) {
     return new WC_Shipping_Rate(
         (string) $rate_id,
         (string) $label,
         (float) $cost,
         array(),
-        'official_cdek',
-        0
+        (string) $method_id,
+        (int) $instance_id
     );
 }
 
@@ -501,9 +504,14 @@ function shikkosa_sdek_append_custom_rates( $rates, $settings ) {
         }
         $price_raw = trim( (string) ( $row['price'] ?? '' ) );
         $cost = ( '' !== $price_raw && is_numeric( $price_raw ) ) ? max( 0.0, (float) $price_raw ) : 0.0;
+        $tariff_code = isset( $row['tariff_code'] ) ? preg_replace( '/[^0-9]/', '', (string) $row['tariff_code'] ) : '';
 
-        $id = 'shk_custom_' . ( (int) $idx + 1 );
-        $rate = shikkosa_sdek_synthetic_rate( $id, $label, $cost );
+        $id = 'shk_custom_' . ( (int) $idx + 1 ) . ( '' !== $tariff_code ? '__tariff_' . $tariff_code : '' );
+        $method_id = ( '' !== $tariff_code ) ? 'official_cdek' : 'shk_manual_delivery';
+        $rate = shikkosa_sdek_synthetic_rate( $id, $label, $cost, $method_id, 0 );
+        if ( '' !== $tariff_code ) {
+            $rate->add_meta_data( '_shk_sdek_tariff_code', $tariff_code, true );
+        }
 
         $price_comment = trim( (string) ( $row['price_comment'] ?? '' ) );
         $delivery_comment = trim( (string) ( $row['delivery_comment'] ?? '' ) );
@@ -686,37 +694,42 @@ function shikkosa_sdek_build_static_rates_from_settings( $rates, $settings ) {
         $new_rates[ $rate_id ] = $rate;
     }
 
-    $rows = shikkosa_sdek_manual_rows_from_settings( $settings );
-    foreach ( $rows as $row ) {
-        $code = (string) ( $row['code'] ?? '' );
-        $label = (string) ( $row['label'] ?? '' );
-        if ( '' === $code || '' === $label ) {
-            continue;
+    $custom_rates = isset( $settings['custom_rates'] ) && is_array( $settings['custom_rates'] ) ? shikkosa_sdek_sanitize_custom_rates( $settings['custom_rates'] ) : array();
+    $has_custom_rows = ! empty( $custom_rates );
+
+    if ( ! $has_custom_rows ) {
+        $rows = shikkosa_sdek_manual_rows_from_settings( $settings );
+        foreach ( $rows as $row ) {
+            $code = (string) ( $row['code'] ?? '' );
+            $label = (string) ( $row['label'] ?? '' );
+            if ( '' === $code || '' === $label ) {
+                continue;
+            }
+
+            $price_key = (string) ( $row['price_key'] ?? '' );
+            $price_raw = '' !== $price_key && isset( $settings[ $price_key ] ) ? trim( (string) $settings[ $price_key ] ) : '';
+            $cost = ( '' !== $price_raw && is_numeric( $price_raw ) ) ? max( 0.0, (float) $price_raw ) : 0.0;
+
+            $rate_id = 'shk_manual_cdek_' . $code;
+            $rate = ( $first_cdek_source && is_a( $first_cdek_source, 'WC_Shipping_Rate' ) )
+                ? shikkosa_clone_rate_with_label_and_cost( $first_cdek_source, $rate_id, $label, $cost )
+                : shikkosa_sdek_synthetic_rate( $rate_id, $label, $cost );
+
+            $price_comment_key = (string) ( $row['price_comment_key'] ?? '' );
+            $delivery_comment_key = (string) ( $row['delivery_comment_key'] ?? '' );
+
+            $price_comment = '' !== $price_comment_key && isset( $settings[ $price_comment_key ] ) ? trim( (string) $settings[ $price_comment_key ] ) : '';
+            $delivery_comment = '' !== $delivery_comment_key && isset( $settings[ $delivery_comment_key ] ) ? trim( (string) $settings[ $delivery_comment_key ] ) : '';
+
+            if ( '' !== $price_comment ) {
+                $rate->add_meta_data( '_shk_price_comment', $price_comment, true );
+            }
+            if ( '' !== $delivery_comment ) {
+                $rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
+            }
+
+            $new_rates[ $rate_id ] = $rate;
         }
-
-        $price_key = (string) ( $row['price_key'] ?? '' );
-        $price_raw = '' !== $price_key && isset( $settings[ $price_key ] ) ? trim( (string) $settings[ $price_key ] ) : '';
-        $cost = ( '' !== $price_raw && is_numeric( $price_raw ) ) ? max( 0.0, (float) $price_raw ) : 0.0;
-
-        $rate_id = 'shk_manual_cdek_' . $code;
-        $rate = ( $first_cdek_source && is_a( $first_cdek_source, 'WC_Shipping_Rate' ) )
-            ? shikkosa_clone_rate_with_label_and_cost( $first_cdek_source, $rate_id, $label, $cost )
-            : shikkosa_sdek_synthetic_rate( $rate_id, $label, $cost );
-
-        $price_comment_key = (string) ( $row['price_comment_key'] ?? '' );
-        $delivery_comment_key = (string) ( $row['delivery_comment_key'] ?? '' );
-
-        $price_comment = '' !== $price_comment_key && isset( $settings[ $price_comment_key ] ) ? trim( (string) $settings[ $price_comment_key ] ) : '';
-        $delivery_comment = '' !== $delivery_comment_key && isset( $settings[ $delivery_comment_key ] ) ? trim( (string) $settings[ $delivery_comment_key ] ) : '';
-
-        if ( '' !== $price_comment ) {
-            $rate->add_meta_data( '_shk_price_comment', $price_comment, true );
-        }
-        if ( '' !== $delivery_comment ) {
-            $rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
-        }
-
-        $new_rates[ $rate_id ] = $rate;
     }
 
     $new_rates = shikkosa_sdek_append_custom_rates( $new_rates, $settings );
@@ -1537,15 +1550,16 @@ function shikkosa_sdek_render_wc_shipping_manager() {
 
     <?php $custom_rates = shikkosa_sdek_sanitize_custom_rates( isset( $opt['custom_rates'] ) ? $opt['custom_rates'] : array() ); ?>
     <h3>Кастомные пункты доставки</h3>
-    <p class="description">Эти пункты добавляются в общий список доставки на checkout.</p>
+    <p class="description">Эти пункты добавляются в общий список доставки на checkout. Если заполнен «Код тарифа CDEK», пункт работает как CDEK-вариант; если пусто — обычный ручной пункт.</p>
     <table class="shk-sdek-inline-table" role="presentation">
         <thead>
             <tr>
                 <th style="width:8%">Вкл</th>
-                <th style="width:26%">Название</th>
-                <th style="width:12%">Стоимость</th>
-                <th style="width:24%">Комментарий к цене</th>
-                <th style="width:24%">Комментарий по сроку</th>
+                <th style="width:23%">Название</th>
+                <th style="width:10%">Код тарифа CDEK</th>
+                <th style="width:11%">Стоимость</th>
+                <th style="width:21%">Комментарий к цене</th>
+                <th style="width:21%">Комментарий по сроку</th>
                 <th style="width:6%"></th>
             </tr>
         </thead>
@@ -1554,6 +1568,7 @@ function shikkosa_sdek_render_wc_shipping_manager() {
                 <tr class="shk-custom-rate-row">
                     <td style="text-align:center"><input type="checkbox" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][enabled]" value="yes" <?php checked( isset( $row['enabled'] ) ? $row['enabled'] : 'yes', 'yes' ); ?> /></td>
                     <td><input type="text" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][label]" value="<?php echo esc_attr( $row['label'] ?? '' ); ?>" /></td>
+                    <td><input type="text" inputmode="numeric" pattern="[0-9]*" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][tariff_code]" value="<?php echo esc_attr( $row['tariff_code'] ?? '' ); ?>" /></td>
                     <td><input type="number" step="0.01" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][price]" value="<?php echo esc_attr( $row['price'] ?? '' ); ?>" /></td>
                     <td><input type="text" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][price_comment]" value="<?php echo esc_attr( $row['price_comment'] ?? '' ); ?>" /></td>
                     <td><input type="text" name="shikkosa_sdek_settings[custom_rates][<?php echo esc_attr( (string) $i ); ?>][delivery_comment]" value="<?php echo esc_attr( $row['delivery_comment'] ?? '' ); ?>" /></td>
@@ -1585,6 +1600,7 @@ function shikkosa_sdek_render_wc_shipping_manager() {
           '<tr class="shk-custom-rate-row">' +
           '<td style="text-align:center"><input type="checkbox" name="shikkosa_sdek_settings[custom_rates][' + idx + '][enabled]" value="yes" checked></td>' +
           '<td><input type="text" name="shikkosa_sdek_settings[custom_rates][' + idx + '][label]" value=""></td>' +
+          '<td><input type="text" inputmode="numeric" pattern="[0-9]*" name="shikkosa_sdek_settings[custom_rates][' + idx + '][tariff_code]" value=""></td>' +
           '<td><input type="number" step="0.01" name="shikkosa_sdek_settings[custom_rates][' + idx + '][price]" value=""></td>' +
           '<td><input type="text" name="shikkosa_sdek_settings[custom_rates][' + idx + '][price_comment]" value=""></td>' +
           '<td><input type="text" name="shikkosa_sdek_settings[custom_rates][' + idx + '][delivery_comment]" value=""></td>' +
