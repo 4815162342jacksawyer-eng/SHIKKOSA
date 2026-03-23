@@ -3137,6 +3137,400 @@ function shikkosa_save_links_meta_box_local( $post_id, $post ) {
     }
 }
 
+function shikkosa_is_product_list_screen_local() {
+    if ( ! is_admin() ) {
+        return false;
+    }
+    global $pagenow;
+    if ( 'edit.php' !== (string) $pagenow ) {
+        return false;
+    }
+    $post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : 'post';
+    return 'product' === $post_type;
+}
+
+add_filter(
+    'manage_edit-product_columns',
+    function( $columns ) {
+        if ( ! is_array( $columns ) ) {
+            return $columns;
+        }
+
+        $out = array();
+        foreach ( $columns as $key => $label ) {
+            $out[ $key ] = $label;
+            if ( 'sku' === $key ) {
+                $out['shk_sizes'] = 'Размеры';
+                $out['shk_qty'] = 'Кол-во';
+                $out['shk_inline'] = 'Редактирование';
+            }
+        }
+        if ( ! isset( $out['shk_sizes'] ) ) {
+            $out['shk_sizes'] = 'Размеры';
+        }
+        if ( ! isset( $out['shk_qty'] ) ) {
+            $out['shk_qty'] = 'Кол-во';
+        }
+        if ( ! isset( $out['shk_inline'] ) ) {
+            $out['shk_inline'] = 'Редактирование';
+        }
+        return $out;
+    },
+    30
+);
+
+add_action(
+    'manage_product_posts_custom_column',
+    function( $column, $post_id ) {
+        $post_id = (int) $post_id;
+        if ( $post_id <= 0 ) {
+            return;
+        }
+        if ( ! in_array( (string) $column, array( 'shk_sizes', 'shk_qty', 'shk_inline' ), true ) ) {
+            return;
+        }
+
+        $product = wc_get_product( $post_id );
+        if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+            echo '&#8212;';
+            return;
+        }
+
+        $sizes_meta = (string) get_post_meta( $post_id, '_shk_sizes', true );
+        if ( '' === trim( $sizes_meta ) ) {
+            $sizes_meta = implode( '|', array_values( array_filter( array_map( 'trim', shikkosa_collect_product_sizes_local( $post_id ) ) ) ) );
+        }
+
+        $stock_qty = '';
+        if ( $product->managing_stock() ) {
+            $qty_val = $product->get_stock_quantity();
+            $stock_qty = null === $qty_val ? '' : (string) (int) $qty_val;
+        }
+
+        if ( 'shk_sizes' === $column ) {
+            echo '<div class="shk-inline-wrap">';
+            echo '<input type="text" class="shk-inline-input" data-field="sizes" value="' . esc_attr( $sizes_meta ) . '" placeholder="XS|S|M" />';
+            echo '<span class="shk-inline-status" aria-hidden="true"></span>';
+            echo '</div>';
+            return;
+        }
+
+        if ( 'shk_qty' === $column ) {
+            echo '<div class="shk-inline-wrap">';
+            echo '<input type="number" class="shk-inline-input" data-field="stock_qty" value="' . esc_attr( $stock_qty ) . '" step="1" min="0" placeholder="0" />';
+            echo '<span class="shk-inline-status" aria-hidden="true"></span>';
+            echo '</div>';
+            return;
+        }
+
+        $title = (string) get_the_title( $post_id );
+        $sku = (string) $product->get_sku();
+        $regular = (string) $product->get_regular_price();
+        $sale = (string) $product->get_sale_price();
+        $old = (string) get_post_meta( $post_id, '_shk_price_before_discount', true );
+
+        echo '<div class="shk-inline-grid">';
+        echo '<label>Название<input type="text" class="shk-inline-input" data-field="title" value="' . esc_attr( $title ) . '" /></label>';
+        echo '<label>SKU<input type="text" class="shk-inline-input" data-field="sku" value="' . esc_attr( $sku ) . '" /></label>';
+        echo '<label>Regular<input type="text" class="shk-inline-input" data-field="regular_price" value="' . esc_attr( $regular ) . '" /></label>';
+        echo '<label>Sale<input type="text" class="shk-inline-input" data-field="sale_price" value="' . esc_attr( $sale ) . '" /></label>';
+        echo '<label>Old SHK<input type="text" class="shk-inline-input" data-field="old_price" value="' . esc_attr( $old ) . '" /></label>';
+        echo '<span class="shk-inline-status" aria-hidden="true"></span>';
+        echo '</div>';
+    },
+    20,
+    2
+);
+
+add_action(
+    'admin_head-edit.php',
+    function() {
+        if ( ! shikkosa_is_product_list_screen_local() ) {
+            return;
+        }
+        ?>
+        <style>
+            .post-type-product .wp-list-table th,
+            .post-type-product .wp-list-table td {
+                padding-top: 4px !important;
+                padding-bottom: 4px !important;
+                font-size: 12px;
+                line-height: 1.25;
+                vertical-align: middle;
+            }
+            .post-type-product .wp-list-table .column-name {
+                width: 20%;
+            }
+            .post-type-product .wp-list-table .column-shk_sizes {
+                width: 12%;
+            }
+            .post-type-product .wp-list-table .column-shk_qty {
+                width: 8%;
+            }
+            .post-type-product .wp-list-table .column-shk_inline {
+                width: 26%;
+            }
+            .post-type-product .wp-list-table .shk-inline-wrap {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .post-type-product .wp-list-table .shk-inline-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(90px, 1fr));
+                gap: 4px 6px;
+                align-items: end;
+            }
+            .post-type-product .wp-list-table .shk-inline-grid label {
+                display: grid;
+                gap: 2px;
+                font-size: 10px;
+                color: #50575e;
+            }
+            .post-type-product .wp-list-table .shk-inline-input {
+                width: 100%;
+                min-height: 24px;
+                padding: 2px 6px;
+                font-size: 12px;
+                line-height: 1.2;
+            }
+            .post-type-product .wp-list-table .column-shk_qty .shk-inline-input {
+                max-width: 85px;
+            }
+            .post-type-product .wp-list-table .shk-inline-input.shk-is-saving {
+                background: #f0f6fc;
+            }
+            .post-type-product .wp-list-table .shk-inline-input.shk-has-error {
+                border-color: #d63638;
+            }
+            .post-type-product .wp-list-table .shk-inline-status {
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                display: inline-block;
+                opacity: 0;
+                transition: opacity .15s ease;
+            }
+            .post-type-product .wp-list-table .shk-inline-status.is-ok {
+                opacity: 1;
+                background: #46b450;
+            }
+            .post-type-product .wp-list-table .shk-inline-status.is-error {
+                opacity: 1;
+                background: #d63638;
+            }
+        </style>
+        <?php
+    }
+);
+
+add_action(
+    'admin_footer-edit.php',
+    function() {
+        if ( ! shikkosa_is_product_list_screen_local() ) {
+            return;
+        }
+        ?>
+        <script>
+        (function($){
+          var nonce = '<?php echo esc_js( wp_create_nonce( 'shk_product_list_inline' ) ); ?>';
+          var timerMap = {};
+
+          function rowId(input){
+            var $tr = $(input).closest('tr[id^="post-"]');
+            if (!$tr.length) return 0;
+            var raw = String($tr.attr('id') || '');
+            return parseInt(raw.replace('post-', ''), 10) || 0;
+          }
+
+          function showStatus($scope, ok){
+            var $status = $scope.closest('.shk-inline-wrap, .shk-inline-grid').find('.shk-inline-status').first();
+            if (!$status.length) return;
+            $status.removeClass('is-ok is-error').addClass(ok ? 'is-ok' : 'is-error');
+            setTimeout(function(){ $status.removeClass('is-ok is-error'); }, 900);
+          }
+
+          function saveField(input){
+            var $input = $(input);
+            var postId = rowId(input);
+            var field = String($input.data('field') || '');
+            if (!postId || !field) return;
+
+            $input.removeClass('shk-has-error').addClass('shk-is-saving');
+
+            $.ajax({
+              url: ajaxurl,
+              method: 'POST',
+              dataType: 'json',
+              data: {
+                action: 'shk_product_list_inline_save',
+                nonce: nonce,
+                post_id: postId,
+                field: field,
+                value: $input.val()
+              }
+            }).done(function(res){
+              if (!res || !res.success) {
+                $input.addClass('shk-has-error');
+                showStatus($input, false);
+                return;
+              }
+              if (res.data && typeof res.data.value !== 'undefined') {
+                $input.val(res.data.value);
+              }
+              showStatus($input, true);
+            }).fail(function(){
+              $input.addClass('shk-has-error');
+              showStatus($input, false);
+            }).always(function(){
+              $input.removeClass('shk-is-saving');
+            });
+          }
+
+          $(document).on('input', '.post-type-product .wp-list-table .shk-inline-input', function(){
+            var input = this;
+            var key = String(rowId(input)) + ':' + String($(input).data('field') || '');
+            if (timerMap[key]) {
+              clearTimeout(timerMap[key]);
+            }
+            timerMap[key] = setTimeout(function(){
+              saveField(input);
+            }, 450);
+          });
+
+          $(document).on('blur', '.post-type-product .wp-list-table .shk-inline-input', function(){
+            saveField(this);
+          });
+        })(jQuery);
+        </script>
+        <?php
+    }
+);
+
+add_action( 'wp_ajax_shk_product_list_inline_save', 'shikkosa_ajax_product_list_inline_save_local' );
+function shikkosa_ajax_product_list_inline_save_local() {
+    if ( ! current_user_can( 'edit_products' ) ) {
+        wp_send_json_error( array( 'message' => 'Недостаточно прав.' ), 403 );
+    }
+
+    check_ajax_referer( 'shk_product_list_inline', 'nonce' );
+
+    $post_id = isset( $_POST['post_id'] ) ? absint( wp_unslash( $_POST['post_id'] ) ) : 0;
+    $field = isset( $_POST['field'] ) ? sanitize_key( wp_unslash( $_POST['field'] ) ) : '';
+    $value_raw = isset( $_POST['value'] ) ? wp_unslash( $_POST['value'] ) : '';
+
+    if ( $post_id <= 0 || 'product' !== get_post_type( $post_id ) ) {
+        wp_send_json_error( array( 'message' => 'Товар не найден.' ), 404 );
+    }
+    if ( ! current_user_can( 'edit_post', $post_id ) ) {
+        wp_send_json_error( array( 'message' => 'Недостаточно прав для товара.' ), 403 );
+    }
+
+    $product = wc_get_product( $post_id );
+    if ( ! $product || ! is_a( $product, 'WC_Product' ) ) {
+        wp_send_json_error( array( 'message' => 'Товар недоступен.' ), 404 );
+    }
+
+    try {
+        if ( 'title' === $field ) {
+            $title = sanitize_text_field( (string) $value_raw );
+            if ( '' === $title ) {
+                wp_send_json_error( array( 'message' => 'Название не может быть пустым.' ), 400 );
+            }
+            wp_update_post(
+                array(
+                    'ID'         => $post_id,
+                    'post_title' => $title,
+                )
+            );
+            wp_send_json_success( array( 'value' => (string) get_the_title( $post_id ) ) );
+        }
+
+        if ( 'sku' === $field ) {
+            $sku = wc_clean( (string) $value_raw );
+            $product->set_sku( $sku );
+            $product->save();
+            wp_send_json_success( array( 'value' => (string) $product->get_sku() ) );
+        }
+
+        if ( 'regular_price' === $field ) {
+            $price = shikkosa_parse_price_amount_local( $value_raw );
+            $product->set_regular_price( $price );
+            $product->save();
+            wp_send_json_success( array( 'value' => (string) $product->get_regular_price() ) );
+        }
+
+        if ( 'sale_price' === $field ) {
+            $price = shikkosa_parse_price_amount_local( $value_raw );
+            $product->set_sale_price( $price );
+            $product->save();
+            wp_send_json_success( array( 'value' => (string) $product->get_sale_price() ) );
+        }
+
+        if ( 'old_price' === $field ) {
+            $price = shikkosa_parse_price_amount_local( $value_raw );
+            if ( '' === $price ) {
+                delete_post_meta( $post_id, '_shk_price_before_discount' );
+                delete_post_meta( $post_id, 'price_before_discount' );
+            } else {
+                update_post_meta( $post_id, '_shk_price_before_discount', $price );
+                update_post_meta( $post_id, 'price_before_discount', $price );
+            }
+            wp_send_json_success( array( 'value' => (string) $price ) );
+        }
+
+        if ( 'stock_qty' === $field ) {
+            $value = trim( (string) $value_raw );
+            if ( '' === $value ) {
+                $product->set_manage_stock( false );
+                $product->set_stock_quantity( null );
+                $product->save();
+                wp_send_json_success( array( 'value' => '' ) );
+            }
+
+            $qty = max( 0, (int) $value );
+            $product->set_manage_stock( true );
+            $product->set_stock_quantity( $qty );
+            $product->set_stock_status( $qty > 0 ? 'instock' : 'outofstock' );
+            $product->save();
+            wp_send_json_success( array( 'value' => (string) $qty ) );
+        }
+
+        if ( 'sizes' === $field ) {
+            $raw = trim( (string) $value_raw );
+            if ( '' === $raw ) {
+                delete_post_meta( $post_id, '_shk_sizes' );
+                wp_send_json_success( array( 'value' => '' ) );
+            }
+
+            $parts = preg_split( '/[\r\n|,;]+/u', $raw );
+            if ( ! is_array( $parts ) ) {
+                $parts = array();
+            }
+            $sizes = array();
+            foreach ( $parts as $part ) {
+                $part = trim( (string) $part );
+                if ( '' === $part ) {
+                    continue;
+                }
+                $sizes[] = sanitize_text_field( $part );
+            }
+            $sizes = array_values( array_unique( $sizes ) );
+            $prepared = implode( '|', $sizes );
+            if ( '' === $prepared ) {
+                delete_post_meta( $post_id, '_shk_sizes' );
+            } else {
+                update_post_meta( $post_id, '_shk_sizes', $prepared );
+            }
+            wp_send_json_success( array( 'value' => $prepared ) );
+        }
+    } catch ( Exception $e ) {
+        wp_send_json_error( array( 'message' => $e->getMessage() ), 400 );
+    }
+
+    wp_send_json_error( array( 'message' => 'Поле не поддерживается.' ), 400 );
+}
+
 function shikkosa_collect_available_sizes_for_simple_product_local( $product_id ) {
     $product_id = (int) $product_id;
     if ( $product_id <= 0 ) {
