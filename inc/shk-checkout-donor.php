@@ -277,17 +277,39 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       function extractCityFromText(raw) {
         var text = String(raw || '').trim();
         if (!text) return '';
+
+        var textLc = text.toLowerCase();
+        if (
+          textLc.indexOf('official_cdek') !== -1 ||
+          textLc.indexOf('shk_point') !== -1 ||
+          textLc.indexOf('__tariff_') !== -1 ||
+          textLc.indexOf('flat_rate') !== -1 ||
+          textLc.indexOf('local_pickup') !== -1 ||
+          text.indexOf(':') !== -1 ||
+          text.indexOf('__') !== -1
+        ) {
+          return '';
+        }
+
+        function isLikelyCity(value) {
+          var v = normalizeCityName(value);
+          if (!v) return false;
+          if (v.length < 3) return false;
+          if (/\d/.test(v)) return false;
+          if (isRegionLikeChunk(v)) return false;
+          if (!/^[A-Za-zА-Яа-яЁё\-\s]+$/.test(v)) return false;
+          var lc = v.toLowerCase();
+          if (lc.indexOf('official_cdek') !== -1 || lc.indexOf('shk_point') !== -1 || lc.indexOf('tariff') !== -1) return false;
+          return true;
+        }
+
         var chunks = text.split(',').map(function(v){ return normalizeCityName(v); }).filter(Boolean);
         for (var i = chunks.length - 1; i >= 0; i--) {
           var ch = String(chunks[i] || '').trim();
-          if (!ch) continue;
-          if (/\d/.test(ch)) continue;
-          if (isRegionLikeChunk(ch)) continue;
-          if (ch.length < 3) continue;
-          return ch;
+          if (isLikelyCity(ch)) return ch;
         }
         var single = normalizeCityName(text);
-        if (single && !/\d/.test(single) && !isRegionLikeChunk(single) && single.length >= 3) {
+        if (isLikelyCity(single)) {
           return single;
         }
         return '';
