@@ -244,7 +244,7 @@ add_action('wp_footer', function(){ ?>
     scope.querySelectorAll('.elementor-4016.e-loop-item').forEach(function(card){
       if (!card) return;
 
-      var tagWrap = card.querySelector('.shk-product-tag');
+      var tagWrap = card.querySelector('.shk-product-tag, .elementor-element-92d4a91');
       if (!tagWrap) {
         var cardContainer = card.querySelector('.elementor-element.elementor-element-2fb22d8');
         if (cardContainer) {
@@ -262,8 +262,12 @@ add_action('wp_footer', function(){ ?>
           cardContainer.insertBefore(tagWrap, cardContainer.firstChild);
         }
       }
+      if (!tagWrap) return;
+      if (!tagWrap.classList.contains('shk-product-tag')) {
+        tagWrap.classList.add('shk-product-tag');
+      }
 
-      var tagText = card.querySelector('.shk-product-tag .elementor-shortcode');
+      var tagText = tagWrap.querySelector('.elementor-shortcode');
       if (!tagText) return;
 
       var tagRoot = tagText.closest('.shk-product-tag');
@@ -272,14 +276,14 @@ add_action('wp_footer', function(){ ?>
         if (!tagRoot) return;
         if (!value) {
           tagText.textContent = '';
-          tagRoot.style.display = 'none';
+          tagRoot.style.setProperty('display', 'none', 'important');
           tagRoot.setAttribute('aria-hidden', 'true');
           return;
         }
         if (String(tagText.textContent || '').trim() !== value) {
           tagText.textContent = value;
         }
-        tagRoot.style.display = '';
+        tagRoot.style.removeProperty('display');
         tagRoot.removeAttribute('aria-hidden');
       }
 
