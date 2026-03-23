@@ -92,6 +92,59 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
       }
 
+      function syncWooShippingCity(root, cityValue) {
+        if (!root) return;
+        var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
+        var shippingForm = shippingFields ? shippingFields.querySelector('#shipping.wc-block-components-address-form') : null;
+        var cityInput = shippingForm ? shippingForm.querySelector('#shipping-city') : null;
+        var value = String(cityValue || '').trim();
+        if (!cityInput || !value) return;
+        if (String(cityInput.value || '').trim() === value) return;
+
+        cityInput.value = value;
+        cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+        cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      function bindCdekMapCitySync(root) {
+        if (!root) return;
+
+        var selectors = [
+          '.wc-block-checkout__shipping-option input[type="search"]',
+          '.wc-block-checkout__shipping-option input[placeholder*="оиск"]',
+          '.wc-block-checkout__shipping-option input[placeholder*="Поиск"]',
+          '.wc-block-checkout__shipping-option input[placeholder*="search"]',
+          '.wc-block-checkout__shipping-option input[placeholder*="Search"]'
+        ];
+
+        var searchInputs = [];
+        selectors.forEach(function(sel) {
+          root.querySelectorAll(sel).forEach(function(el) {
+            if (searchInputs.indexOf(el) === -1) searchInputs.push(el);
+          });
+        });
+        if (!searchInputs.length) return;
+
+        searchInputs.forEach(function(searchInput) {
+          if (searchInput.dataset.shkCdekCityBound === '1') return;
+
+          var pushCity = function() {
+            var raw = String(searchInput.value || '').trim();
+            if (!raw) return;
+            var normalized = raw.replace(/\s+/g, ' ');
+            var city = normalized.split(',')[0].trim();
+            if (!city) city = normalized;
+            if (city.length < 2) return;
+            syncWooShippingCity(root, city);
+          };
+
+          searchInput.addEventListener('input', pushCity);
+          searchInput.addEventListener('change', pushCity);
+          searchInput.addEventListener('blur', pushCity);
+          searchInput.dataset.shkCdekCityBound = '1';
+        });
+      }
+
       function enforceAddressFieldVisibility(root) {
         if (!root) return;
         var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
@@ -608,6 +661,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         forceOrderNote(root);
         enforceAddressFieldVisibility(root);
         syncShippingAddressAvailability(root);
+        bindCdekMapCitySync(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -638,6 +692,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         mountUnifiedShippingRates(root);
         enforceAddressFieldVisibility(root);
         syncShippingAddressAvailability(root);
+        bindCdekMapCitySync(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
@@ -652,6 +707,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         mountUnifiedShippingRates(root);
         enforceAddressFieldVisibility(root);
         syncShippingAddressAvailability(root);
+        bindCdekMapCitySync(root);
         hideTermsNotice(root);
         moveOrderItemsToMainTop(root);
         renameSummaryTitle(root);
