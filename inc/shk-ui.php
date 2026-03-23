@@ -266,10 +266,25 @@ add_action('wp_footer', function(){ ?>
       var tagText = card.querySelector('.shk-product-tag .elementor-shortcode');
       if (!tagText) return;
 
-      if (card.classList.contains('product_cat-newproducts')) {
-        if (String(tagText.textContent || '').trim() !== 'NEW') {
-          tagText.textContent = 'NEW';
+      var tagRoot = tagText.closest('.shk-product-tag');
+      function applyBadge(text){
+        var value = String(text || '').trim();
+        if (!tagRoot) return;
+        if (!value) {
+          tagText.textContent = '';
+          tagRoot.style.display = 'none';
+          tagRoot.setAttribute('aria-hidden', 'true');
+          return;
         }
+        if (String(tagText.textContent || '').trim() !== value) {
+          tagText.textContent = value;
+        }
+        tagRoot.style.display = '';
+        tagRoot.removeAttribute('aria-hidden');
+      }
+
+      if (card.classList.contains('product_cat-newproducts')) {
+        applyBadge('NEW');
         return;
       }
 
@@ -282,19 +297,26 @@ add_action('wp_footer', function(){ ?>
 
       var titlePrice = parseLoopPriceValue(title.textContent || '');
       var descPrice = parseLoopPriceValue(desc.textContent || '');
-      if (!(titlePrice > 0) || !(descPrice > 0)) return;
+      if (!(titlePrice > 0) || !(descPrice > 0)) {
+        applyBadge('');
+        return;
+      }
 
       var original = Math.max(titlePrice, descPrice);
       var current = Math.min(titlePrice, descPrice);
-      if (!(original > current)) return;
+      if (!(original > current)) {
+        applyBadge('');
+        return;
+      }
 
       var percent = Math.round(((original - current) / original) * 100);
-      if (!(percent > 0)) return;
+      if (!(percent > 0)) {
+        applyBadge('');
+        return;
+      }
 
       var discountText = '-' + String(percent) + '%';
-      if (String(tagText.textContent || '').trim() !== discountText) {
-        tagText.textContent = discountText;
-      }
+      applyBadge(discountText);
     });
   }
 
