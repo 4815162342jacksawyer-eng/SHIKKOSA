@@ -229,6 +229,23 @@ document.addEventListener('DOMContentLoaded', function(){
 add_action('wp_footer', function(){ ?>
 <script>
 (function(){
+  function hideEmptyProductTags(root){
+    var scope = root || document;
+    scope.querySelectorAll('.shk-product-tag, .elementor-element-92d4a91').forEach(function(tag){
+      if (!tag) return;
+      var shortcode = tag.querySelector('.elementor-shortcode');
+      if (!shortcode) return;
+      var text = String(shortcode.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!text) {
+        tag.style.setProperty('display', 'none', 'important');
+        tag.setAttribute('aria-hidden', 'true');
+      } else {
+        tag.style.removeProperty('display');
+        tag.removeAttribute('aria-hidden');
+      }
+    });
+  }
+
   function parseLoopPriceValue(raw){
     var text = String(raw || '').replace(/\s+/g, ' ');
     var normalized = text
@@ -347,9 +364,11 @@ add_action('wp_footer', function(){ ?>
   function bootLoop4016Swap(){
     swapLoop4016PriceRows(document);
     refreshLoop4016DiscountTags(document);
+    hideEmptyProductTags(document);
     var obs = new MutationObserver(function(){
       swapLoop4016PriceRows(document);
       refreshLoop4016DiscountTags(document);
+      hideEmptyProductTags(document);
     });
     obs.observe(document.body, { childList: true, subtree: true });
   }
