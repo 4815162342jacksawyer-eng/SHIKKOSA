@@ -649,6 +649,50 @@ function shikkosa_marketing_certificate_expiry_days_option_key_local() {
     return 'shk_marketing_certificate_expiry_days';
 }
 
+function shikkosa_marketing_auto_n_plus_one_enabled_option_key_local() {
+    return 'shk_marketing_auto_n_plus_one_enabled';
+}
+
+function shikkosa_marketing_auto_n_plus_one_n_option_key_local() {
+    return 'shk_marketing_auto_n_plus_one_n';
+}
+
+function shikkosa_marketing_auto_second_cat_enabled_option_key_local() {
+    return 'shk_marketing_auto_second_cat_enabled';
+}
+
+function shikkosa_marketing_auto_second_cat_percent_option_key_local() {
+    return 'shk_marketing_auto_second_cat_percent';
+}
+
+function shikkosa_marketing_auto_set_enabled_option_key_local() {
+    return 'shk_marketing_auto_set_enabled';
+}
+
+function shikkosa_marketing_auto_set_min_items_option_key_local() {
+    return 'shk_marketing_auto_set_min_items';
+}
+
+function shikkosa_marketing_auto_set_percent_option_key_local() {
+    return 'shk_marketing_auto_set_percent';
+}
+
+function shikkosa_marketing_auto_one_ruble_enabled_option_key_local() {
+    return 'shk_marketing_auto_one_ruble_enabled';
+}
+
+function shikkosa_marketing_auto_one_ruble_threshold_option_key_local() {
+    return 'shk_marketing_auto_one_ruble_threshold';
+}
+
+function shikkosa_marketing_auto_one_ruble_product_id_option_key_local() {
+    return 'shk_marketing_auto_one_ruble_product_id';
+}
+
+function shikkosa_marketing_sanitize_checkbox_option_local( $value ) {
+    return ! empty( $value ) ? '1' : '0';
+}
+
 add_action(
     'admin_init',
     function() {
@@ -677,6 +721,96 @@ add_action(
                 'type'              => 'integer',
                 'sanitize_callback' => 'absint',
                 'default'           => 365,
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_n_plus_one_enabled_option_key_local(),
+            array(
+                'type'              => 'string',
+                'sanitize_callback' => 'shikkosa_marketing_sanitize_checkbox_option_local',
+                'default'           => '0',
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_n_plus_one_n_option_key_local(),
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 1,
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_second_cat_enabled_option_key_local(),
+            array(
+                'type'              => 'string',
+                'sanitize_callback' => 'shikkosa_marketing_sanitize_checkbox_option_local',
+                'default'           => '0',
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_second_cat_percent_option_key_local(),
+            array(
+                'type'              => 'number',
+                'sanitize_callback' => 'wc_format_decimal',
+                'default'           => 50,
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_set_enabled_option_key_local(),
+            array(
+                'type'              => 'string',
+                'sanitize_callback' => 'shikkosa_marketing_sanitize_checkbox_option_local',
+                'default'           => '0',
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_set_min_items_option_key_local(),
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 3,
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_set_percent_option_key_local(),
+            array(
+                'type'              => 'number',
+                'sanitize_callback' => 'wc_format_decimal',
+                'default'           => 30,
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_one_ruble_enabled_option_key_local(),
+            array(
+                'type'              => 'string',
+                'sanitize_callback' => 'shikkosa_marketing_sanitize_checkbox_option_local',
+                'default'           => '0',
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_one_ruble_threshold_option_key_local(),
+            array(
+                'type'              => 'number',
+                'sanitize_callback' => 'wc_format_decimal',
+                'default'           => 0,
+            )
+        );
+        register_setting(
+            'shikkosa_marketing_settings_group',
+            shikkosa_marketing_auto_one_ruble_product_id_option_key_local(),
+            array(
+                'type'              => 'integer',
+                'sanitize_callback' => 'absint',
+                'default'           => 0,
             )
         );
     }
@@ -711,11 +845,42 @@ function shikkosa_render_marketing_settings_page_local() {
     $product_id = (int) get_option( shikkosa_marketing_certificate_product_id_option_key_local(), 0 );
     $form_id = (int) get_option( shikkosa_marketing_certificate_form_id_option_key_local(), 2873 );
     $expiry_days = (int) get_option( shikkosa_marketing_certificate_expiry_days_option_key_local(), 365 );
+    $auto_n_plus_one_enabled = '1' === (string) get_option( shikkosa_marketing_auto_n_plus_one_enabled_option_key_local(), '0' );
+    $auto_n_plus_one_n = (int) get_option( shikkosa_marketing_auto_n_plus_one_n_option_key_local(), 1 );
+    $auto_second_cat_enabled = '1' === (string) get_option( shikkosa_marketing_auto_second_cat_enabled_option_key_local(), '0' );
+    $auto_second_cat_percent = (float) get_option( shikkosa_marketing_auto_second_cat_percent_option_key_local(), 50 );
+    $auto_set_enabled = '1' === (string) get_option( shikkosa_marketing_auto_set_enabled_option_key_local(), '0' );
+    $auto_set_min_items = (int) get_option( shikkosa_marketing_auto_set_min_items_option_key_local(), 3 );
+    $auto_set_percent = (float) get_option( shikkosa_marketing_auto_set_percent_option_key_local(), 30 );
+    $auto_one_ruble_enabled = '1' === (string) get_option( shikkosa_marketing_auto_one_ruble_enabled_option_key_local(), '0' );
+    $auto_one_ruble_threshold = (float) get_option( shikkosa_marketing_auto_one_ruble_threshold_option_key_local(), 0 );
+    $auto_one_ruble_product_id = (int) get_option( shikkosa_marketing_auto_one_ruble_product_id_option_key_local(), 0 );
     if ( $form_id <= 0 ) {
         $form_id = 2873;
     }
     if ( $expiry_days <= 0 ) {
         $expiry_days = 365;
+    }
+    if ( $auto_n_plus_one_n <= 0 ) {
+        $auto_n_plus_one_n = 1;
+    }
+    if ( $auto_second_cat_percent < 0 ) {
+        $auto_second_cat_percent = 0;
+    }
+    if ( $auto_second_cat_percent > 100 ) {
+        $auto_second_cat_percent = 100;
+    }
+    if ( $auto_set_min_items <= 0 ) {
+        $auto_set_min_items = 3;
+    }
+    if ( $auto_set_percent < 0 ) {
+        $auto_set_percent = 0;
+    }
+    if ( $auto_set_percent > 100 ) {
+        $auto_set_percent = 100;
+    }
+    if ( $auto_one_ruble_threshold < 0 ) {
+        $auto_one_ruble_threshold = 0;
     }
     ?>
     <div class="wrap">
@@ -771,6 +936,161 @@ function shikkosa_render_marketing_settings_page_local() {
                             value="<?php echo esc_attr( (string) $expiry_days ); ?>"
                             class="regular-text"
                         />
+                    </td>
+                </tr>
+            </table>
+            <hr />
+            <h2>Авто-акции (без купона)</h2>
+            <p>Эти правила применяются автоматически, без ввода купона, и работают отдельно от вкладки <strong>SHK Акции</strong> в карточке купона.</p>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">N+1 (1+1, 2+1, 3+1...)</th>
+                    <td>
+                        <input
+                            name="<?php echo esc_attr( shikkosa_marketing_auto_n_plus_one_enabled_option_key_local() ); ?>"
+                            type="hidden"
+                            value="0"
+                        />
+                        <label>
+                            <input
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_n_plus_one_enabled_option_key_local() ); ?>"
+                                type="checkbox"
+                                value="1"
+                                <?php checked( $auto_n_plus_one_enabled ); ?>
+                            />
+                            Включить авто-акцию N+1
+                        </label>
+                        <p>
+                            <label for="<?php echo esc_attr( shikkosa_marketing_auto_n_plus_one_n_option_key_local() ); ?>">N:</label>
+                            <input
+                                id="<?php echo esc_attr( shikkosa_marketing_auto_n_plus_one_n_option_key_local() ); ?>"
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_n_plus_one_n_option_key_local() ); ?>"
+                                type="number"
+                                min="1"
+                                step="1"
+                                value="<?php echo esc_attr( (string) $auto_n_plus_one_n ); ?>"
+                                style="width:100px"
+                            />
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Скидка на второй товар категории</th>
+                    <td>
+                        <input
+                            name="<?php echo esc_attr( shikkosa_marketing_auto_second_cat_enabled_option_key_local() ); ?>"
+                            type="hidden"
+                            value="0"
+                        />
+                        <label>
+                            <input
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_second_cat_enabled_option_key_local() ); ?>"
+                                type="checkbox"
+                                value="1"
+                                <?php checked( $auto_second_cat_enabled ); ?>
+                            />
+                            Включить скидку на каждый второй товар в категории
+                        </label>
+                        <p>
+                            <label for="<?php echo esc_attr( shikkosa_marketing_auto_second_cat_percent_option_key_local() ); ?>">Процент скидки:</label>
+                            <input
+                                id="<?php echo esc_attr( shikkosa_marketing_auto_second_cat_percent_option_key_local() ); ?>"
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_second_cat_percent_option_key_local() ); ?>"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                value="<?php echo esc_attr( wc_format_decimal( $auto_second_cat_percent ) ); ?>"
+                                style="width:120px"
+                            />
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Скидка на комплект</th>
+                    <td>
+                        <input
+                            name="<?php echo esc_attr( shikkosa_marketing_auto_set_enabled_option_key_local() ); ?>"
+                            type="hidden"
+                            value="0"
+                        />
+                        <label>
+                            <input
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_set_enabled_option_key_local() ); ?>"
+                                type="checkbox"
+                                value="1"
+                                <?php checked( $auto_set_enabled ); ?>
+                            />
+                            Включить скидку на весь комплект
+                        </label>
+                        <p>
+                            <label for="<?php echo esc_attr( shikkosa_marketing_auto_set_min_items_option_key_local() ); ?>">Минимум товаров в корзине:</label>
+                            <input
+                                id="<?php echo esc_attr( shikkosa_marketing_auto_set_min_items_option_key_local() ); ?>"
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_set_min_items_option_key_local() ); ?>"
+                                type="number"
+                                min="1"
+                                step="1"
+                                value="<?php echo esc_attr( (string) $auto_set_min_items ); ?>"
+                                style="width:100px"
+                            />
+                        </p>
+                        <p>
+                            <label for="<?php echo esc_attr( shikkosa_marketing_auto_set_percent_option_key_local() ); ?>">Процент скидки на комплект:</label>
+                            <input
+                                id="<?php echo esc_attr( shikkosa_marketing_auto_set_percent_option_key_local() ); ?>"
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_set_percent_option_key_local() ); ?>"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                value="<?php echo esc_attr( wc_format_decimal( $auto_set_percent ) ); ?>"
+                                style="width:120px"
+                            />
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Позиция за 1 ₽</th>
+                    <td>
+                        <input
+                            name="<?php echo esc_attr( shikkosa_marketing_auto_one_ruble_enabled_option_key_local() ); ?>"
+                            type="hidden"
+                            value="0"
+                        />
+                        <label>
+                            <input
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_one_ruble_enabled_option_key_local() ); ?>"
+                                type="checkbox"
+                                value="1"
+                                <?php checked( $auto_one_ruble_enabled ); ?>
+                            />
+                            Включить автодобавление товара за 1 ₽
+                        </label>
+                        <p>
+                            <label for="<?php echo esc_attr( shikkosa_marketing_auto_one_ruble_threshold_option_key_local() ); ?>">Порог суммы корзины:</label>
+                            <input
+                                id="<?php echo esc_attr( shikkosa_marketing_auto_one_ruble_threshold_option_key_local() ); ?>"
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_one_ruble_threshold_option_key_local() ); ?>"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value="<?php echo esc_attr( wc_format_decimal( $auto_one_ruble_threshold ) ); ?>"
+                                style="width:140px"
+                            />
+                        </p>
+                        <p>
+                            <label for="<?php echo esc_attr( shikkosa_marketing_auto_one_ruble_product_id_option_key_local() ); ?>">ID товара за 1 ₽:</label>
+                            <input
+                                id="<?php echo esc_attr( shikkosa_marketing_auto_one_ruble_product_id_option_key_local() ); ?>"
+                                name="<?php echo esc_attr( shikkosa_marketing_auto_one_ruble_product_id_option_key_local() ); ?>"
+                                type="number"
+                                min="0"
+                                step="1"
+                                value="<?php echo esc_attr( (string) $auto_one_ruble_product_id ); ?>"
+                                style="width:120px"
+                            />
+                        </p>
                     </td>
                 </tr>
             </table>
@@ -873,6 +1193,292 @@ add_filter(
 function shikkosa_certificate_cart_item_data_key_local() {
     return 'shk_certificate_payload';
 }
+
+function shikkosa_auto_one_ruble_cart_item_key_local() {
+    return '_shk_auto_one_ruble_item';
+}
+
+function shikkosa_marketing_get_bool_option_local( $option_key ) {
+    return '1' === (string) get_option( (string) $option_key, '0' );
+}
+
+function shikkosa_marketing_get_decimal_option_local( $option_key, $default = 0.0 ) {
+    $value = (float) wc_format_decimal( get_option( (string) $option_key, $default ) );
+    return $value > 0 ? $value : 0.0;
+}
+
+function shikkosa_is_certificate_cart_item_local( $cart_item ) {
+    $meta_key = shikkosa_certificate_cart_item_data_key_local();
+    return is_array( $cart_item ) && ! empty( $cart_item[ $meta_key ] ) && is_array( $cart_item[ $meta_key ] );
+}
+
+function shikkosa_is_auto_one_ruble_cart_item_local( $cart_item ) {
+    $meta_key = shikkosa_auto_one_ruble_cart_item_key_local();
+    return is_array( $cart_item ) && ! empty( $cart_item[ $meta_key ] );
+}
+
+function shikkosa_is_promotions_excluded_cart_item_local( $cart_item ) {
+    if ( shikkosa_is_certificate_cart_item_local( $cart_item ) ) {
+        return true;
+    }
+    if ( shikkosa_is_auto_one_ruble_cart_item_local( $cart_item ) ) {
+        return true;
+    }
+    return false;
+}
+
+function shikkosa_auto_promo_discount_n_plus_one_local( $cart_items, $n ) {
+    $n = (int) $n;
+    if ( $n <= 0 ) {
+        $n = 1;
+    }
+    $bundle = $n + 1;
+    if ( $bundle <= 1 ) {
+        return 0.0;
+    }
+
+    $discount = 0.0;
+    foreach ( (array) $cart_items as $item ) {
+        if ( shikkosa_is_promotions_excluded_cart_item_local( $item ) ) {
+            continue;
+        }
+        $qty = isset( $item['quantity'] ) ? (int) $item['quantity'] : 0;
+        if ( $qty < $bundle ) {
+            continue;
+        }
+        $unit_price = shikkosa_coupon_item_unit_price_local( $item );
+        if ( $unit_price <= 0 ) {
+            continue;
+        }
+        $free_count = (int) floor( $qty / $bundle );
+        $discount += $free_count * $unit_price;
+    }
+
+    return max( 0.0, $discount );
+}
+
+function shikkosa_auto_promo_discount_second_category_percent_local( $cart_items, $percent ) {
+    $percent = (float) $percent;
+    if ( $percent <= 0 ) {
+        return 0.0;
+    }
+    if ( $percent > 100 ) {
+        $percent = 100.0;
+    }
+
+    $category_prices = array();
+    foreach ( (array) $cart_items as $item ) {
+        if ( shikkosa_is_promotions_excluded_cart_item_local( $item ) ) {
+            continue;
+        }
+        $qty = isset( $item['quantity'] ) ? (int) $item['quantity'] : 0;
+        if ( $qty <= 0 ) {
+            continue;
+        }
+        $unit_price = shikkosa_coupon_item_unit_price_local( $item );
+        if ( $unit_price <= 0 ) {
+            continue;
+        }
+        $product_id = shikkosa_coupon_item_effective_product_id_local( $item );
+        $cat_ids = array_map( 'intval', wc_get_product_term_ids( $product_id, 'product_cat' ) );
+        if ( empty( $cat_ids ) ) {
+            $cat_ids = array( 0 );
+        } else {
+            sort( $cat_ids );
+            $cat_ids = array( (int) $cat_ids[0] );
+        }
+
+        $cat_id = (int) $cat_ids[0];
+        if ( ! isset( $category_prices[ $cat_id ] ) ) {
+            $category_prices[ $cat_id ] = array();
+        }
+        for ( $i = 0; $i < $qty; $i++ ) {
+            $category_prices[ $cat_id ][] = $unit_price;
+        }
+    }
+
+    $discount = 0.0;
+    foreach ( $category_prices as $prices ) {
+        if ( count( $prices ) < 2 ) {
+            continue;
+        }
+        rsort( $prices, SORT_NUMERIC );
+        for ( $i = 1; $i < count( $prices ); $i += 2 ) {
+            $discount += $prices[ $i ] * ( $percent / 100 );
+        }
+    }
+
+    return max( 0.0, $discount );
+}
+
+function shikkosa_auto_promo_discount_set_percent_local( $cart_items, $min_items, $percent ) {
+    $min_items = (int) $min_items;
+    $percent = (float) $percent;
+    if ( $min_items <= 0 || $percent <= 0 ) {
+        return 0.0;
+    }
+    if ( $percent > 100 ) {
+        $percent = 100.0;
+    }
+
+    $items_total_qty = 0;
+    $items_subtotal = 0.0;
+    foreach ( (array) $cart_items as $item ) {
+        if ( shikkosa_is_promotions_excluded_cart_item_local( $item ) ) {
+            continue;
+        }
+        $qty = isset( $item['quantity'] ) ? (int) $item['quantity'] : 0;
+        if ( $qty <= 0 ) {
+            continue;
+        }
+        $unit_price = shikkosa_coupon_item_unit_price_local( $item );
+        if ( $unit_price <= 0 ) {
+            continue;
+        }
+        $items_total_qty += $qty;
+        $items_subtotal += ( $unit_price * $qty );
+    }
+
+    if ( $items_total_qty < $min_items || $items_subtotal <= 0 ) {
+        return 0.0;
+    }
+
+    return max( 0.0, $items_subtotal * ( $percent / 100 ) );
+}
+
+function shikkosa_auto_promo_eligible_subtotal_local( $cart ) {
+    if ( ! $cart || ! is_a( $cart, 'WC_Cart' ) ) {
+        return 0.0;
+    }
+    $subtotal = 0.0;
+    foreach ( $cart->get_cart() as $cart_item ) {
+        if ( shikkosa_is_promotions_excluded_cart_item_local( $cart_item ) ) {
+            continue;
+        }
+        $qty = isset( $cart_item['quantity'] ) ? (int) $cart_item['quantity'] : 0;
+        if ( $qty <= 0 ) {
+            continue;
+        }
+        $unit_price = shikkosa_coupon_item_unit_price_local( $cart_item );
+        if ( $unit_price <= 0 ) {
+            continue;
+        }
+        $subtotal += ( $unit_price * $qty );
+    }
+    return max( 0.0, $subtotal );
+}
+
+add_action(
+    'woocommerce_before_calculate_totals',
+    function( $cart ) {
+        if ( is_admin() && ! wp_doing_ajax() ) {
+            return;
+        }
+        if ( ! $cart || ! is_a( $cart, 'WC_Cart' ) ) {
+            return;
+        }
+        if ( ! shikkosa_marketing_get_bool_option_local( shikkosa_marketing_auto_one_ruble_enabled_option_key_local() ) ) {
+            return;
+        }
+
+        $threshold = shikkosa_marketing_get_decimal_option_local( shikkosa_marketing_auto_one_ruble_threshold_option_key_local(), 0 );
+        $product_id = (int) get_option( shikkosa_marketing_auto_one_ruble_product_id_option_key_local(), 0 );
+        if ( $threshold <= 0 || $product_id <= 0 ) {
+            return;
+        }
+
+        $auto_item_key = shikkosa_auto_one_ruble_cart_item_key_local();
+        $found_auto_item_keys = array();
+        foreach ( $cart->get_cart() as $cart_item_key => $cart_item ) {
+            if ( ! shikkosa_is_auto_one_ruble_cart_item_local( $cart_item ) ) {
+                continue;
+            }
+            $found_auto_item_keys[] = (string) $cart_item_key;
+        }
+
+        $eligible_subtotal = shikkosa_auto_promo_eligible_subtotal_local( $cart );
+        $should_have_one_ruble = $eligible_subtotal >= $threshold;
+
+        if ( $should_have_one_ruble && empty( $found_auto_item_keys ) ) {
+            $added = $cart->add_to_cart(
+                $product_id,
+                1,
+                0,
+                array(),
+                array(
+                    $auto_item_key   => 1,
+                    '_shk_unique_key'=> 'one-ruble-' . time(),
+                )
+            );
+            if ( $added ) {
+                $found_auto_item_keys[] = (string) $added;
+            }
+        }
+
+        if ( ! $should_have_one_ruble && ! empty( $found_auto_item_keys ) ) {
+            foreach ( $found_auto_item_keys as $cart_item_key ) {
+                $cart->remove_cart_item( $cart_item_key );
+            }
+            $found_auto_item_keys = array();
+        }
+
+        if ( ! empty( $found_auto_item_keys ) ) {
+            foreach ( $found_auto_item_keys as $cart_item_key ) {
+                if ( empty( $cart->cart_contents[ $cart_item_key ] ) ) {
+                    continue;
+                }
+                if ( isset( $cart->cart_contents[ $cart_item_key ]['quantity'] ) && (int) $cart->cart_contents[ $cart_item_key ]['quantity'] > 1 ) {
+                    $cart->cart_contents[ $cart_item_key ]['quantity'] = 1;
+                }
+                if ( isset( $cart->cart_contents[ $cart_item_key ]['data'] ) && is_a( $cart->cart_contents[ $cart_item_key ]['data'], 'WC_Product' ) ) {
+                    $cart->cart_contents[ $cart_item_key ]['data']->set_price( 1 );
+                }
+            }
+        }
+    },
+    26
+);
+
+add_action(
+    'woocommerce_cart_calculate_fees',
+    function( $cart ) {
+        if ( is_admin() && ! wp_doing_ajax() ) {
+            return;
+        }
+        if ( ! $cart || ! is_a( $cart, 'WC_Cart' ) ) {
+            return;
+        }
+
+        $cart_items = $cart->get_cart();
+
+        if ( shikkosa_marketing_get_bool_option_local( shikkosa_marketing_auto_n_plus_one_enabled_option_key_local() ) ) {
+            $n = (int) get_option( shikkosa_marketing_auto_n_plus_one_n_option_key_local(), 1 );
+            $discount = (float) wc_format_decimal( shikkosa_auto_promo_discount_n_plus_one_local( $cart_items, $n ) );
+            if ( $discount > 0 ) {
+                $cart->add_fee( 'Авто-акция N+1', -1 * $discount, false );
+            }
+        }
+
+        if ( shikkosa_marketing_get_bool_option_local( shikkosa_marketing_auto_second_cat_enabled_option_key_local() ) ) {
+            $percent = (float) get_option( shikkosa_marketing_auto_second_cat_percent_option_key_local(), 50 );
+            $discount = (float) wc_format_decimal( shikkosa_auto_promo_discount_second_category_percent_local( $cart_items, $percent ) );
+            if ( $discount > 0 ) {
+                $cart->add_fee( 'Авто-акция: второй товар категории', -1 * $discount, false );
+            }
+        }
+
+        if ( shikkosa_marketing_get_bool_option_local( shikkosa_marketing_auto_set_enabled_option_key_local() ) ) {
+            $min_items = (int) get_option( shikkosa_marketing_auto_set_min_items_option_key_local(), 3 );
+            $percent = (float) get_option( shikkosa_marketing_auto_set_percent_option_key_local(), 30 );
+            $discount = (float) wc_format_decimal( shikkosa_auto_promo_discount_set_percent_local( $cart_items, $min_items, $percent ) );
+            if ( $discount > 0 ) {
+                $cart->add_fee( 'Авто-акция: скидка на комплект', -1 * $discount, false );
+            }
+        }
+    },
+    35,
+    1
+);
 
 add_action(
     'wp_ajax_shk_certificate_add_to_cart',
