@@ -964,16 +964,17 @@ add_action(
         ?>
         <script>
         (function(){
-          var form = document.getElementById('forminator-module-<?php echo (int) $form_id; ?>');
-          if (!form) return;
+          var formId = 'forminator-module-<?php echo (int) $form_id; ?>';
+          var submitInProgress = false;
 
-          form.addEventListener('submit', function(e){
-            e.preventDefault();
+          function getForm(){
+            return document.getElementById(formId);
+          }
 
+          function collectPayload(form){
             var fd = new FormData(form);
             function val(name){ return String(fd.get(name) || '').trim(); }
-
-            var payload = {
+            return {
               action: 'shk_certificate_add_to_cart',
               nonce: '<?php echo esc_js( wp_create_nonce( 'shk_certificate_buy' ) ); ?>',
               number_1: val('number-1'),
@@ -987,11 +988,18 @@ add_action(
               radio_2: val('radio-2'),
               radio_3: val('radio-3')
             };
+          }
+
+          function submitCertificateForm(form){
+            if (!form || submitInProgress) return;
+            submitInProgress = true;
 
             var submitBtn = form.querySelector('.forminator-pagination-submit');
             if (submitBtn) submitBtn.disabled = true;
 
+            var payload = collectPayload(form);
             var body = new URLSearchParams(payload).toString();
+
             fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
               method: 'POST',
               headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -1004,13 +1012,39 @@ add_action(
                 }
                 var msg = (res && res.data && res.data.message) ? res.data.message : 'Не удалось оформить сертификат.';
                 alert(msg);
+                submitInProgress = false;
                 if (submitBtn) submitBtn.disabled = false;
               })
               .catch(function(){
                 alert('Ошибка при отправке данных. Попробуйте еще раз.');
+                submitInProgress = false;
                 if (submitBtn) submitBtn.disabled = false;
               });
-          }, { passive: false });
+          }
+
+          document.addEventListener('click', function(e){
+            var btn = e.target && e.target.closest ? e.target.closest('#' + formId + ' .forminator-pagination-submit') : null;
+            if (!btn) return;
+            var form = getForm();
+            if (!form) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') {
+              e.stopImmediatePropagation();
+            }
+            submitCertificateForm(form);
+          }, true);
+
+          document.addEventListener('submit', function(e){
+            var form = e.target;
+            if (!form || form.id !== formId) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') {
+              e.stopImmediatePropagation();
+            }
+            submitCertificateForm(form);
+          }, true);
         })();
         </script>
         <?php
