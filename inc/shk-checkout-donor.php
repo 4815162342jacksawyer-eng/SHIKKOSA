@@ -77,6 +77,14 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           shippingFields.classList.add('shk-shipping-address-disabled');
           shippingFields.setAttribute('aria-disabled', 'true');
           shippingFields.style.setProperty('display', 'none', 'important');
+
+          var shippingForm = shippingFields.querySelector('#shipping.wc-block-components-address-form');
+          var cityInput = shippingForm ? shippingForm.querySelector('#shipping-city') : null;
+          if (cityInput && !(cityInput.value || '').trim()) {
+            cityInput.value = 'Москва';
+            cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+            cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
         } else {
           shippingFields.classList.remove('shk-shipping-address-disabled');
           shippingFields.removeAttribute('aria-disabled');

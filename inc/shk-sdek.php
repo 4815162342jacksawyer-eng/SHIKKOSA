@@ -1726,6 +1726,22 @@ function shikkosa_sdek_checkout_notes_blocks() {
             'price'    => isset( $opt['cdek_express_door_door_price_comment'] ) ? (string) $opt['cdek_express_door_door_price_comment'] : '',
             'delivery' => isset( $opt['cdek_express_door_door_delivery_comment'] ) ? (string) $opt['cdek_express_door_door_delivery_comment'] : '',
         ),
+        'msk_no_fit' => array(
+            'price'    => isset( $opt['msk_no_fit_price_comment'] ) ? (string) $opt['msk_no_fit_price_comment'] : '',
+            'delivery' => isset( $opt['msk_no_fit_delivery_comment'] ) ? (string) $opt['msk_no_fit_delivery_comment'] : '',
+        ),
+        'msk_fit' => array(
+            'price'    => isset( $opt['msk_fit_price_comment'] ) ? (string) $opt['msk_fit_price_comment'] : '',
+            'delivery' => isset( $opt['msk_fit_delivery_comment'] ) ? (string) $opt['msk_fit_delivery_comment'] : '',
+        ),
+        'rf_no_fit' => array(
+            'price'    => isset( $opt['rf_no_fit_price_comment'] ) ? (string) $opt['rf_no_fit_price_comment'] : '',
+            'delivery' => isset( $opt['rf_no_fit_delivery_comment'] ) ? (string) $opt['rf_no_fit_delivery_comment'] : '',
+        ),
+        'rf_fit' => array(
+            'price'    => isset( $opt['rf_fit_price_comment'] ) ? (string) $opt['rf_fit_price_comment'] : '',
+            'delivery' => isset( $opt['rf_fit_delivery_comment'] ) ? (string) $opt['rf_fit_delivery_comment'] : '',
+        ),
     );
     foreach ( array( 'cdek_door_door', 'cdek_door_warehouse', 'cdek_pickup', 'cdek_express_door_door' ) as $profile_code ) {
         $variants = shikkosa_sdek_get_profile_variants( $opt, $profile_code );
@@ -1760,6 +1776,10 @@ function shikkosa_sdek_checkout_notes_blocks() {
         if (hay.indexOf('__shk_variant_cdek_door_warehouse') !== -1) return 'cdek_door_warehouse_variant_1';
         if (hay.indexOf('__shk_variant_cdek_pickup') !== -1) return 'cdek_pickup_variant_1';
         if (hay.indexOf('__shk_variant_cdek_door_door') !== -1) return 'cdek_door_door_variant_1';
+        if ((hay.indexOf('москв') !== -1 || hay.indexOf('мкад') !== -1 || hay.indexOf(' мо ') !== -1 || hay.indexOf(' мо,') !== -1) && hay.indexOf('примерк') !== -1) return 'msk_fit';
+        if (hay.indexOf('москв') !== -1 || hay.indexOf('мкад') !== -1 || hay.indexOf(' мо ') !== -1 || hay.indexOf(' мо,') !== -1) return 'msk_no_fit';
+        if ((hay.indexOf('росси') !== -1 || hay.indexOf('рф') !== -1) && hay.indexOf('примерк') !== -1) return 'rf_fit';
+        if (hay.indexOf('росси') !== -1 || hay.indexOf('рф') !== -1) return 'rf_no_fit';
         if (hay.indexOf('экспресс') !== -1 || hay.indexOf('express') !== -1) return 'cdek_express_door_door';
         if (hay.indexOf('двер') !== -1 && hay.indexOf('склад') !== -1) return 'cdek_door_warehouse';
         if (hay.indexOf('пвз') !== -1 || hay.indexOf('пункт') !== -1 || hay.indexOf('pickup') !== -1 || hay.indexOf('самовывоз') !== -1) return 'cdek_pickup';
