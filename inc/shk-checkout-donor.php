@@ -77,14 +77,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           shippingFields.classList.add('shk-shipping-address-disabled');
           shippingFields.setAttribute('aria-disabled', 'true');
           shippingFields.style.setProperty('display', 'none', 'important');
-
-          var shippingForm = shippingFields.querySelector('#shipping.wc-block-components-address-form');
-          var cityInput = shippingForm ? shippingForm.querySelector('#shipping-city') : null;
-          if (cityInput && !(cityInput.value || '').trim()) {
-            cityInput.value = 'Москва';
-            cityInput.dispatchEvent(new Event('input', { bubbles: true }));
-            cityInput.dispatchEvent(new Event('change', { bubbles: true }));
-          }
+          syncWooShippingCity(root, 'Москва');
         } else {
           shippingFields.classList.remove('shk-shipping-address-disabled');
           shippingFields.removeAttribute('aria-disabled');
@@ -93,17 +86,45 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
       }
 
       function syncWooShippingCity(root, cityValue) {
-        if (!root) return;
-        var shippingFields = root.querySelector('fieldset.wc-block-checkout__shipping-fields');
-        var shippingForm = shippingFields ? shippingFields.querySelector('#shipping.wc-block-components-address-form') : null;
-        var cityInput = shippingForm ? shippingForm.querySelector('#shipping-city') : null;
         var value = String(cityValue || '').trim();
-        if (!cityInput || !value) return;
-        if (String(cityInput.value || '').trim() === value) return;
+        if (!value) return;
 
-        cityInput.value = value;
-        cityInput.dispatchEvent(new Event('input', { bubbles: true }));
-        cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+        var cityInputs = [];
+        if (root) {
+          root.querySelectorAll('#shipping-city, input[name="shipping_city"], input[name="shipping-city"], .wc-block-components-address-form__city input').forEach(function(el){
+            if (cityInputs.indexOf(el) === -1) cityInputs.push(el);
+          });
+        }
+
+        cityInputs.forEach(function(cityInput){
+          if (String(cityInput.value || '').trim() === value) return;
+          cityInput.value = value;
+          cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+          cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+          cityInput.dispatchEvent(new Event('blur', { bubbles: true }));
+        });
+
+        var wpData = window.wp && window.wp.data ? window.wp.data : null;
+        if (wpData && wpData.dispatch) {
+          var cartDispatch = wpData.dispatch('wc/store/cart');
+          if (cartDispatch) {
+            if (typeof cartDispatch.setShippingAddress === 'function') {
+              cartDispatch.setShippingAddress({ city: value });
+            } else if (typeof cartDispatch.__experimentalSetShippingAddress === 'function') {
+              cartDispatch.__experimentalSetShippingAddress({ city: value });
+            }
+          }
+          var checkoutDispatch = wpData.dispatch('wc/store/checkout');
+          if (checkoutDispatch) {
+            if (typeof checkoutDispatch.setShippingAddress === 'function') {
+              checkoutDispatch.setShippingAddress({ city: value });
+            } else if (typeof checkoutDispatch.__experimentalSetShippingAddress === 'function') {
+              checkoutDispatch.__experimentalSetShippingAddress({ city: value });
+            }
+          }
+        }
+
+        document.dispatchEvent(new Event('wc_update_checkout'));
       }
 
       function bindCdekMapCitySync(root) {
