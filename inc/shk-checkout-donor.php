@@ -175,11 +175,79 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
         }
       }
 
+      function normalizeCityName(raw) {
+        var city = String(raw || '').trim();
+        if (!city) return '';
+        city = city.replace(/^г\.\s*/i, '');
+        city = city.replace(/^город\s+/i, '');
+        city = city.replace(/\s+/g, ' ').trim();
+        if (city.length < 2) return '';
+        return city;
+      }
+
+      function extractCityFromCdekFields(root) {
+        if (!root) return '';
+        var candidates = [];
+        root.querySelectorAll('input[name*="cdek" i], input[id*="cdek" i], input[name*="sdek" i], input[id*="sdek" i], textarea[name*="cdek" i], textarea[id*="cdek" i], textarea[name*="sdek" i], textarea[id*="sdek" i]').forEach(function(el){
+          var val = '';
+          if ('value' in el) {
+            val = String(el.value || '').trim();
+          } else {
+            val = String(el.textContent || '').trim();
+          }
+          if (val) candidates.push(val);
+        });
+
+        for (var i = 0; i < candidates.length; i++) {
+          var text = String(candidates[i] || '');
+          var byCityPrefix = text.match(/(?:^|,\s*)г\.\s*([A-Za-zА-Яа-яЁё\- ]+)(?:,|$)/i);
+          if (byCityPrefix && byCityPrefix[1]) {
+            var city1 = normalizeCityName(byCityPrefix[1]);
+            if (city1) return city1;
+          }
+          var firstChunk = text.split(',')[0] || '';
+          var city2 = normalizeCityName(firstChunk);
+          if (city2) return city2;
+        }
+        return '';
+      }
+
+      function attemptSyncCityFromCdekSelection(root) {
+        var city = extractCityFromCdekFields(root);
+        if (!city) return;
+        if (city.toLowerCase() === 'россия') return;
+        syncWooShippingCity(root, city);
+      }
+
       function bindCdekMapCitySync(root) {
-        // Disabled intentionally: syncing Woo city from CDEK search triggers
-        // expensive checkout recalculations and resets selected shipping method.
-        // We keep one-time fallback city only for initial map bootstrap.
-        return;
+        if (!root) return;
+        if (root.dataset.shkCdekSelectionSyncBound === '1') return;
+
+        var shippingOptions = root.querySelector('fieldset.wc-block-checkout__shipping-option');
+        if (!shippingOptions) return;
+
+        shippingOptions.addEventListener('click', function(evt){
+          var t = evt.target;
+          if (!t) return;
+          var selected = shippingOptions.querySelector('.wc-block-components-radio-control__input:checked');
+          var selectedOption = selected ? selected.closest('.wc-block-components-radio-control__option') : null;
+          var selectedHay = (
+            String(selected ? selected.value || '' : '') + ' ' +
+            String(selectedOption ? selectedOption.textContent || '' : '')
+          ).toLowerCase();
+          var isCdekLike =
+            selectedHay.indexOf('cdek') !== -1 ||
+            selectedHay.indexOf('sdek') !== -1 ||
+            selectedHay.indexOf('сдэк') !== -1 ||
+            selectedHay.indexOf('пвз') !== -1;
+          if (!isCdekLike) return;
+
+          // Sync only after actual selection interactions in widget UI.
+          window.setTimeout(function(){ attemptSyncCityFromCdekSelection(root); }, 140);
+          window.setTimeout(function(){ attemptSyncCityFromCdekSelection(root); }, 900);
+        }, true);
+
+        root.dataset.shkCdekSelectionSyncBound = '1';
       }
 
       function enforceAddressFieldVisibility(root) {
