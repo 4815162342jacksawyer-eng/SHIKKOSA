@@ -620,13 +620,130 @@ function shikkosa_sdek_build_prerates_without_address( $rates, $settings ) {
     return $new_rates;
 }
 
+function shikkosa_sdek_manual_rows_from_settings( $settings ) {
+    $rows = array();
+
+    $general_profiles = array(
+        'cdek_express_door_door',
+        'cdek_door_door',
+        'cdek_door_warehouse',
+        'cdek_pickup',
+    );
+
+    foreach ( $general_profiles as $code ) {
+        if ( ! shikkosa_sdek_is_profile_visible( $settings, $code ) ) {
+            continue;
+        }
+        $label = isset( $settings[ $code . '_label' ] ) ? trim( (string) $settings[ $code . '_label' ] ) : '';
+        if ( '' === $label ) {
+            continue;
+        }
+        $rows[] = array(
+            'code'             => $code,
+            'label'            => $label,
+            'price_key'        => $code . '_price',
+            'price_comment_key'    => $code . '_price_comment',
+            'delivery_comment_key' => $code . '_delivery_comment',
+        );
+    }
+
+    $split_rows = array( 'msk_no_fit', 'msk_fit', 'rf_no_fit', 'rf_fit' );
+    foreach ( $split_rows as $code ) {
+        $label = isset( $settings[ $code . '_label' ] ) ? trim( (string) $settings[ $code . '_label' ] ) : '';
+        if ( '' === $label ) {
+            continue;
+        }
+        $rows[] = array(
+            'code'             => $code,
+            'label'            => $label,
+            'price_key'        => $code . '_price',
+            'price_comment_key'    => $code . '_price_comment',
+            'delivery_comment_key' => $code . '_delivery_comment',
+        );
+    }
+
+    return $rows;
+}
+
+function shikkosa_sdek_build_static_rates_from_settings( $rates, $settings ) {
+    $rates = is_array( $rates ) ? $rates : array();
+    $new_rates = array();
+    $first_cdek_source = null;
+
+    foreach ( $rates as $rate_id => $rate ) {
+        if ( ! is_object( $rate ) || ! is_a( $rate, 'WC_Shipping_Rate' ) ) {
+            $new_rates[ $rate_id ] = $rate;
+            continue;
+        }
+
+        if ( shikkosa_is_cdek_rate( $rate ) ) {
+            if ( null === $first_cdek_source ) {
+                $first_cdek_source = $rate;
+            }
+            continue;
+        }
+
+        $new_rates[ $rate_id ] = $rate;
+    }
+
+    $rows = shikkosa_sdek_manual_rows_from_settings( $settings );
+    foreach ( $rows as $row ) {
+        $code = (string) ( $row['code'] ?? '' );
+        $label = (string) ( $row['label'] ?? '' );
+        if ( '' === $code || '' === $label ) {
+            continue;
+        }
+
+        $price_key = (string) ( $row['price_key'] ?? '' );
+        $price_raw = '' !== $price_key && isset( $settings[ $price_key ] ) ? trim( (string) $settings[ $price_key ] ) : '';
+        $cost = ( '' !== $price_raw && is_numeric( $price_raw ) ) ? max( 0.0, (float) $price_raw ) : 0.0;
+
+        $rate_id = 'shk_manual_cdek_' . $code;
+        $rate = ( $first_cdek_source && is_a( $first_cdek_source, 'WC_Shipping_Rate' ) )
+            ? shikkosa_clone_rate_with_label_and_cost( $first_cdek_source, $rate_id, $label, $cost )
+            : shikkosa_sdek_synthetic_rate( $rate_id, $label, $cost );
+
+        $price_comment_key = (string) ( $row['price_comment_key'] ?? '' );
+        $delivery_comment_key = (string) ( $row['delivery_comment_key'] ?? '' );
+
+        $price_comment = '' !== $price_comment_key && isset( $settings[ $price_comment_key ] ) ? trim( (string) $settings[ $price_comment_key ] ) : '';
+        $delivery_comment = '' !== $delivery_comment_key && isset( $settings[ $delivery_comment_key ] ) ? trim( (string) $settings[ $delivery_comment_key ] ) : '';
+
+        if ( '' !== $price_comment ) {
+            $rate->add_meta_data( '_shk_price_comment', $price_comment, true );
+        }
+        if ( '' !== $delivery_comment ) {
+            $rate->add_meta_data( '_shk_delivery_comment', $delivery_comment, true );
+        }
+
+        $new_rates[ $rate_id ] = $rate;
+    }
+
+    $new_rates = shikkosa_sdek_append_custom_rates( $new_rates, $settings );
+    return $new_rates;
+}
+
 add_filter( 'woocommerce_package_rates', 'shikkosa_split_cdek_pickup_rates', 120, 2 );
 function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     $settings = shikkosa_sdek_settings();
     $started_at = microtime( true );
+    $rates = is_array( $rates ) ? $rates : array();
 
-    if ( ! is_array( $rates ) || empty( $rates ) ) {
+    $show_all_before_address = ( 'yes' === (string) ( $settings['show_all_before_address'] ?? 'yes' ) );
+    if ( $show_all_before_address ) {
+        $static_rates = shikkosa_sdek_build_static_rates_from_settings( $rates, $settings );
         if ( 'yes' === (string) $settings['debug_timing'] ) {
+            $logger = wc_get_logger();
+            $logger->info(
+                '[SHK SDEK] package_rates: static SHK mode enabled, in=' . count( $rates ) . ', out=' . count( $static_rates ) . ', elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms',
+                array( 'source' => 'shk-sdek' )
+            );
+        }
+        return $static_rates;
+    }
+
+    if ( empty( $rates ) ) {
+        if ( 'yes' === (string) $settings['debug_timing' ] ) {
             $logger = wc_get_logger();
             $logger->info( '[SHK SDEK] package_rates: empty rates, elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms', array( 'source' => 'shk-sdek' ) );
         }
@@ -634,22 +751,6 @@ function shikkosa_split_cdek_pickup_rates( $rates, $package ) {
     }
 
     $split_enabled = ( 'yes' === (string) $settings['enabled'] );
-    $show_all_before_address = ( 'yes' === (string) ( $settings['show_all_before_address'] ?? 'yes' ) );
-    if ( $show_all_before_address ) {
-        $pre_rates = shikkosa_sdek_build_prerates_without_address( $rates, $settings );
-        $pre_rates = shikkosa_sdek_append_custom_rates( $pre_rates, $settings );
-        if ( ! empty( $pre_rates ) ) {
-            if ( 'yes' === (string) $settings['debug_timing'] ) {
-                $logger = wc_get_logger();
-                $logger->info(
-                    '[SHK SDEK] package_rates: stable pre-rates mode enabled, in=' . count( $rates ) . ', out=' . count( $pre_rates ) . ', elapsed=' . round( ( microtime( true ) - $started_at ) * 1000, 2 ) . 'ms',
-                    array( 'source' => 'shk-sdek' )
-                );
-            }
-            return $pre_rates;
-        }
-    }
-
     $new_rates = array();
 
     foreach ( $rates as $rate_id => $rate ) {
