@@ -3130,13 +3130,9 @@ add_filter(
         foreach ( $columns as $key => $label ) {
             $out[ $key ] = $label;
             if ( 'sku' === $key ) {
-                $out['shk_sizes'] = 'Размеры';
                 $out['shk_qty'] = 'Кол-во';
                 $out['shk_inline'] = 'Редактирование';
             }
-        }
-        if ( ! isset( $out['shk_sizes'] ) ) {
-            $out['shk_sizes'] = 'Размеры';
         }
         if ( ! isset( $out['shk_qty'] ) ) {
             $out['shk_qty'] = 'Кол-во';
@@ -3156,7 +3152,7 @@ add_action(
         if ( $post_id <= 0 ) {
             return;
         }
-        if ( ! in_array( (string) $column, array( 'shk_sizes', 'shk_qty', 'shk_inline' ), true ) ) {
+        if ( ! in_array( (string) $column, array( 'shk_qty', 'shk_inline' ), true ) ) {
             return;
         }
 
@@ -3166,11 +3162,6 @@ add_action(
             return;
         }
 
-        $sizes_meta = (string) get_post_meta( $post_id, '_shk_sizes', true );
-        if ( '' === trim( $sizes_meta ) ) {
-            $sizes_meta = implode( '|', array_values( array_filter( array_map( 'trim', shikkosa_collect_product_sizes_local( $post_id ) ) ) ) );
-        }
-
         $size_qty_rows = shikkosa_admin_collect_size_qty_rows_local( $product );
         $stock_qty = '';
         if ( empty( $size_qty_rows ) && $product->managing_stock() ) {
@@ -3178,21 +3169,17 @@ add_action(
             $stock_qty = null === $qty_val ? '' : (string) (int) $qty_val;
         }
 
-        if ( 'shk_sizes' === $column ) {
-            echo '<div class="shk-inline-wrap">';
-            echo '<input type="text" class="shk-inline-input" data-field="sizes" value="' . esc_attr( $sizes_meta ) . '" placeholder="XS|S|M" />';
-            echo '<span class="shk-inline-status" aria-hidden="true"></span>';
-            echo '</div>';
-            return;
-        }
-
         if ( 'shk_qty' === $column ) {
             if ( ! empty( $size_qty_rows ) ) {
+                $allow_add_size = ! $product->is_type( 'variable' );
                 echo '<div class="shk-size-qty-wrap">';
                 echo '<div class="shk-size-qty-sizes">';
                 foreach ( $size_qty_rows as $row ) {
                     $size = (string) ( $row['size'] ?? '' );
                     echo '<span class="shk-size-chip">' . esc_html( $size ) . '</span>';
+                }
+                if ( $allow_add_size ) {
+                    echo '<button type="button" class="button-link shk-size-add" data-field="add_size_row" title="Добавить размер">+</button>';
                 }
                 echo '</div>';
                 echo '<div class="shk-size-qty-inputs">';
@@ -3246,9 +3233,6 @@ add_action(
             }
             .post-type-product .wp-list-table .column-name {
                 width: 20%;
-            }
-            .post-type-product .wp-list-table .column-shk_sizes {
-                width: 12%;
             }
             .post-type-product .wp-list-table .column-shk_qty {
                 width: 20%;
@@ -3307,6 +3291,18 @@ add_action(
                 background: #f6f7f7;
                 white-space: nowrap;
             }
+            .post-type-product .wp-list-table .shk-size-add {
+                min-width: 18px;
+                height: 22px;
+                line-height: 22px;
+                text-align: center;
+                border: 1px solid #8c8f94;
+                border-radius: 4px;
+                padding: 0 6px;
+                text-decoration: none;
+                color: #1d2327;
+                background: #fff;
+            }
             .post-type-product .wp-list-table .shk-inline-input.shk-is-saving {
                 background: #f0f6fc;
             }
@@ -3354,7 +3350,7 @@ add_action(
           }
 
           function showStatus($scope, ok){
-            var $status = $scope.closest('.shk-inline-wrap, .shk-inline-grid').find('.shk-inline-status').first();
+            var $status = $scope.closest('.shk-inline-wrap, .shk-inline-grid, .shk-size-qty-wrap').find('.shk-inline-status').first();
             if (!$status.length) return;
             $status.removeClass('is-ok is-error').addClass(ok ? 'is-ok' : 'is-error');
             setTimeout(function(){ $status.removeClass('is-ok is-error'); }, 900);
@@ -3416,6 +3412,48 @@ add_action(
 
           $(document).on('blur', '.post-type-product .wp-list-table .shk-inline-input', function(){
             saveField(this);
+          });
+
+          $(document).on('click', '.post-type-product .wp-list-table .shk-size-add', function(e){
+            e.preventDefault();
+            var $btn = $(this);
+            var postId = rowId(this);
+            if (!postId) return;
+
+            var newSize = window.prompt('Новый размер (например XS, 75C):', '');
+            if (newSize === null) return;
+            newSize = String(newSize).trim();
+            if (!newSize) return;
+
+            $.ajax({
+              url: ajaxurl,
+              method: 'POST',
+              dataType: 'json',
+              data: {
+                action: 'shk_product_list_inline_save',
+                nonce: nonce,
+                post_id: postId,
+                field: 'add_size_row',
+                value: newSize
+              }
+            }).done(function(res){
+              if (!res || !res.success || !res.data) {
+                showStatus($btn, false);
+                return;
+              }
+              var size = String(res.data.size || newSize);
+              var qty = String(typeof res.data.qty !== 'undefined' ? res.data.qty : '0');
+              var variationId = parseInt(String(res.data.variation_id || '0'), 10) || 0;
+
+              var $wrap = $btn.closest('.shk-size-qty-wrap');
+              var $sizes = $wrap.find('.shk-size-qty-sizes');
+              var $inputs = $wrap.find('.shk-size-qty-inputs');
+              $btn.before('<span class="shk-size-chip">' + $('<div/>').text(size).html() + '</span>');
+              $inputs.append('<input type="number" class="shk-inline-input" data-field="size_qty" data-size="' + $('<div/>').text(size).html() + '" data-variation-id="' + variationId + '" value="' + qty + '" step="1" min="0" placeholder="0" />');
+              showStatus($btn, true);
+            }).fail(function(){
+              showStatus($btn, false);
+            });
           });
         })(jQuery);
         </script>
@@ -3549,33 +3587,38 @@ function shikkosa_ajax_product_list_inline_save_local() {
             wp_send_json_success( array( 'value' => (string) $qty ) );
         }
 
-        if ( 'sizes' === $field ) {
-            $raw = trim( (string) $value_raw );
-            if ( '' === $raw ) {
-                delete_post_meta( $post_id, '_shk_sizes' );
-                wp_send_json_success( array( 'value' => '' ) );
+        if ( 'add_size_row' === $field ) {
+            if ( $product->is_type( 'variable' ) ) {
+                wp_send_json_error( array( 'message' => 'Для вариативных товаров новый размер добавляется через вариации.' ), 400 );
             }
 
-            $parts = preg_split( '/[\r\n|,;]+/u', $raw );
-            if ( ! is_array( $parts ) ) {
-                $parts = array();
+            $size = sanitize_text_field( trim( (string) $value_raw ) );
+            if ( '' === $size ) {
+                wp_send_json_error( array( 'message' => 'Размер пустой.' ), 400 );
             }
-            $sizes = array();
-            foreach ( $parts as $part ) {
-                $part = trim( (string) $part );
-                if ( '' === $part ) {
-                    continue;
-                }
-                $sizes[] = sanitize_text_field( $part );
-            }
+
+            $sizes = array_values( array_filter( array_map( 'trim', shikkosa_collect_product_sizes_local( $post_id ) ) ) );
+            $sizes[] = $size;
             $sizes = array_values( array_unique( $sizes ) );
-            $prepared = implode( '|', $sizes );
-            if ( '' === $prepared ) {
-                delete_post_meta( $post_id, '_shk_sizes' );
-            } else {
-                update_post_meta( $post_id, '_shk_sizes', $prepared );
+            update_post_meta( $post_id, '_shk_sizes', implode( '|', $sizes ) );
+
+            $map = get_post_meta( $post_id, '_shk_size_qty_map', true );
+            if ( ! is_array( $map ) ) {
+                $decoded = json_decode( (string) $map, true );
+                $map = is_array( $decoded ) ? $decoded : array();
             }
-            wp_send_json_success( array( 'value' => $prepared ) );
+            if ( ! isset( $map[ $size ] ) ) {
+                $map[ $size ] = 0;
+                update_post_meta( $post_id, '_shk_size_qty_map', $map );
+            }
+
+            wp_send_json_success(
+                array(
+                    'size'         => $size,
+                    'qty'          => (int) ( $map[ $size ] ?? 0 ),
+                    'variation_id' => 0,
+                )
+            );
         }
     } catch ( Exception $e ) {
         wp_send_json_error( array( 'message' => $e->getMessage() ), 400 );
