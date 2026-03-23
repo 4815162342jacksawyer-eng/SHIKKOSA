@@ -107,6 +107,7 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           selectedValue: selectedValue,
           disableAddressInputs: disableAddressInputs
         });
+        var shippingTitle = shippingFields.querySelector('.wc-block-components-checkout-step__title');
         if (disableAddressInputs) {
           shippingFields.classList.add('shk-shipping-address-disabled');
           shippingFields.setAttribute('aria-disabled', 'true');
@@ -135,11 +136,17 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
           if (isCdekLike) {
             shippingFields.style.removeProperty('display');
           }
+          if (shippingTitle) {
+            shippingTitle.style.setProperty('display', 'none', 'important');
+          }
         } else {
           shippingFields.classList.remove('shk-shipping-address-disabled');
           shippingFields.removeAttribute('aria-disabled');
           shippingFields.style.removeProperty('display');
           toggleShippingAddressInputs(root, false);
+          if (shippingTitle) {
+            shippingTitle.style.removeProperty('display');
+          }
         }
       }
 
@@ -541,6 +548,45 @@ function shikkosa_checkout_donor_blocks_tweaks_local() {
               onDone('');
               return;
             }
+
+            // Prefer Yandex geocoder when available on page (same stack as CDEK map),
+            // then fallback to OSM reverse geocoding.
+            if (window.ymaps && typeof window.ymaps.ready === 'function' && typeof window.ymaps.geocode === 'function') {
+              try {
+                window.ymaps.ready(function(){
+                  window.ymaps.geocode([lat, lon]).then(function(res){
+                    var first = res && typeof res.geoObjects !== 'undefined' && res.geoObjects.get ? res.geoObjects.get(0) : null;
+                    var meta = first && first.properties && first.properties.get ? first.properties.get('metaDataProperty') : null;
+                    var addr = meta && meta.GeocoderMetaData && meta.GeocoderMetaData.Address ? meta.GeocoderMetaData.Address : null;
+                    var comps = addr && Array.isArray(addr.Components) ? addr.Components : [];
+                    var locality = '';
+                    comps.forEach(function(c){
+                      if (!c || !c.kind) return;
+                      if (c.kind === 'locality' || c.kind === 'province' || c.kind === 'area') {
+                        if (!locality) locality = String(c.name || '');
+                      }
+                    });
+                    var city = extractCityFromText(locality);
+                    if (city) {
+                      onDone(city);
+                      return;
+                    }
+                    // If Yandex didn't return a city token, continue with OSM fallback.
+                    var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=ru&lat=' + encodeURIComponent(String(lat)) + '&lon=' + encodeURIComponent(String(lon));
+                    fetch(url, { method: 'GET', credentials: 'omit' })
+                      .then(function(r){ return r && r.ok ? r.json() : null; })
+                      .then(function(data){
+                        var oa = data && data.address ? data.address : {};
+                        var raw = [oa.city, oa.town, oa.village, oa.municipality, oa.county, oa.state_district, oa.state].filter(Boolean).join(', ');
+                        onDone(extractCityFromText(raw));
+                      })
+                      .catch(function(){ onDone(''); });
+                  }, function(){ onDone(''); });
+                });
+                return;
+              } catch (e) {}
+            }
+
             var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=ru&lat=' + encodeURIComponent(String(lat)) + '&lon=' + encodeURIComponent(String(lon));
             fetch(url, { method: 'GET', credentials: 'omit' })
               .then(function(r){ return r && r.ok ? r.json() : null; })
