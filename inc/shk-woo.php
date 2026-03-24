@@ -3778,6 +3778,84 @@ function shikkosa_localize_cart_error_message_local( $message ) {
     return $message;
 }
 
+function shikkosa_validate_variation_stock_for_cart_local( $product_id, $variation_id, $quantity, $attributes = array(), $selected_size = '' ) {
+    $variation_id = (int) $variation_id;
+    if ( $variation_id <= 0 ) {
+        return true;
+    }
+
+    $variation_product = wc_get_product( $variation_id );
+    if ( ! $variation_product || ! is_a( $variation_product, 'WC_Product_Variation' ) ) {
+        return new WP_Error( 'invalid_variation', 'Не удалось определить выбранный размер.' );
+    }
+
+    $parent_id = (int) $variation_product->get_parent_id();
+    if ( (int) $product_id > 0 && $parent_id > 0 && $parent_id !== (int) $product_id ) {
+        return new WP_Error( 'invalid_variation_parent', 'Выбранный размер не относится к этому товару.' );
+    }
+
+    $attributes = is_array( $attributes ) ? $attributes : array();
+    $selected_size = trim( (string) $selected_size );
+    if ( '' === $selected_size ) {
+        $selected_size = shikkosa_extract_size_from_attributes_local( $attributes );
+    }
+
+    $variation_size = shikkosa_extract_size_from_attributes_local( (array) $variation_product->get_attributes() );
+    if ( '' === $variation_size ) {
+        $variation_size = shikkosa_extract_size_from_sku_local( (string) $variation_product->get_sku() );
+    }
+
+    if ( '' !== $selected_size && '' !== $variation_size ) {
+        if ( shikkosa_normalize_size_local( $selected_size ) !== shikkosa_normalize_size_local( $variation_size ) ) {
+            return new WP_Error( 'variation_size_mismatch', 'Выбранный размер недоступен. Пожалуйста, выберите размер заново.' );
+        }
+    }
+
+    $requested_qty = max( 1, (int) $quantity );
+
+    if ( $variation_product->managing_stock() ) {
+        $stock_qty = $variation_product->get_stock_quantity();
+        $stock_qty = null === $stock_qty ? 0 : (int) $stock_qty;
+        if ( $stock_qty < $requested_qty ) {
+            return new WP_Error( 'variation_out_of_stock', 'Этого размера нет в наличии.' );
+        }
+    }
+
+    if ( ! $variation_product->is_in_stock() ) {
+        return new WP_Error( 'variation_out_of_stock', 'Этого размера нет в наличии.' );
+    }
+
+    return true;
+}
+
+add_filter(
+    'woocommerce_add_to_cart_validation',
+    function( $passed, $product_id, $quantity, $variation_id, $variations ) {
+        if ( ! $passed ) {
+            return false;
+        }
+
+        $validation = shikkosa_validate_variation_stock_for_cart_local(
+            (int) $product_id,
+            (int) $variation_id,
+            (int) $quantity,
+            is_array( $variations ) ? (array) $variations : array(),
+            ''
+        );
+
+        if ( is_wp_error( $validation ) ) {
+            if ( function_exists( 'wc_add_notice' ) ) {
+                wc_add_notice( $validation->get_error_message(), 'error' );
+            }
+            return false;
+        }
+
+        return true;
+    },
+    25,
+    5
+);
+
 function shikkosa_extract_color_from_attributes_local( $attributes ) {
     if ( ! is_array( $attributes ) ) {
         return '';
@@ -5058,6 +5136,23 @@ function shikkosa_ajax_add_to_cart() {
                 wp_send_json_error( array( 'message' => 'Выбран некорректный размер.' ), 400 );
             }
         }
+    }
+
+    $variation_validation = shikkosa_validate_variation_stock_for_cart_local(
+        $product_id,
+        $variation_id,
+        $quantity,
+        $attributes,
+        $posted_selected_size
+    );
+    if ( is_wp_error( $variation_validation ) ) {
+        $notice_message = shikkosa_localize_cart_error_message_local( $variation_validation->get_error_message() );
+        wp_send_json_error(
+            array(
+                'message' => '' !== trim( $notice_message ) ? $notice_message : 'Этого размера нет в наличии.',
+            ),
+            400
+        );
     }
 
     $passed = apply_filters( 'woocommerce_add_to_cart_validation', true, $product_id, $quantity, $variation_id, $attributes );
