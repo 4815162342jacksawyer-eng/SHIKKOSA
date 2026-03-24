@@ -229,6 +229,158 @@ document.addEventListener('DOMContentLoaded', function(){
 add_action('wp_footer', function(){ ?>
 <script>
 (function(){
+  function onReady(fn){
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', fn);
+      return;
+    }
+    fn();
+  }
+
+  onReady(function(){
+    if (document.getElementById('shkWishlistDrawer')) return;
+
+    var root = document.createElement('div');
+    root.id = 'shkWishlistDrawer';
+    root.className = 'shk-wishlist-drawer';
+    root.setAttribute('aria-hidden', 'true');
+    root.innerHTML =
+      '<div class="shk-wishlist-drawer__overlay" data-shk-wishlist-close></div>' +
+      '<aside class="shk-wishlist-drawer__panel" role="dialog" aria-modal="true" aria-label="Список желаний">' +
+        '<div class="shk-wishlist-drawer__head">' +
+          '<h3 class="shk-wishlist-drawer__title">Список желаний</h3>' +
+          '<button type="button" class="shk-wishlist-drawer__close" aria-label="Закрыть" data-shk-wishlist-close></button>' +
+        '</div>' +
+        '<div class="shk-wishlist-drawer__content"><p class="shk-wishlist-drawer__loading">Загрузка...</p></div>' +
+      '</aside>';
+
+    document.body.appendChild(root);
+
+    var content = root.querySelector('.shk-wishlist-drawer__content');
+    var isLoading = false;
+
+    function isModifierClick(e){
+      return !!(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0);
+    }
+
+    function openDrawer(){
+      root.classList.add('is-open');
+      root.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('shk-wishlist-open');
+      loadWishlist();
+    }
+
+    function closeDrawer(){
+      root.classList.remove('is-open');
+      root.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('shk-wishlist-open');
+    }
+
+    function extractWishlistHtml(pageHtml){
+      try {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(pageHtml, 'text/html');
+        var wishlistNode = doc.querySelector('.tinv-wishlist');
+        if (!wishlistNode) {
+          return '<p class="shk-wishlist-drawer__empty">Не удалось загрузить список желаний.</p>';
+        }
+        var h = wishlistNode.querySelector('.tinv-header');
+        if (h) h.remove();
+        return wishlistNode.outerHTML;
+      } catch (err) {
+        return '<p class="shk-wishlist-drawer__empty">Ошибка загрузки списка желаний.</p>';
+      }
+    }
+
+    function setLoading(){
+      content.innerHTML = '<p class="shk-wishlist-drawer__loading">Загрузка...</p>';
+    }
+
+    function loadWishlist(force){
+      if (isLoading && !force) return Promise.resolve();
+      isLoading = true;
+      setLoading();
+      var url = '/wishlist/?shk_wishlist_popup=1&_=' + Date.now();
+      return fetch(url, { credentials: 'same-origin' })
+        .then(function(res){ return res.text(); })
+        .then(function(html){
+          content.innerHTML = extractWishlistHtml(html);
+        })
+        .catch(function(){
+          content.innerHTML = '<p class="shk-wishlist-drawer__empty">Не удалось загрузить список желаний.</p>';
+        })
+        .finally(function(){
+          isLoading = false;
+        });
+    }
+
+    document.addEventListener('click', function(e){
+      var closeBtn = e.target.closest('[data-shk-wishlist-close]');
+      if (closeBtn) {
+        e.preventDefault();
+        closeDrawer();
+        return;
+      }
+
+      var trigger = e.target.closest('a.wishlist_products_counter.top_wishlist-heart, a.wishlist_products_counter.top_wishlist-heart-plus');
+      if (!trigger) return;
+      if (isModifierClick(e)) return;
+
+      e.preventDefault();
+      openDrawer();
+    });
+
+    root.addEventListener('submit', function(e){
+      var form = e.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      if (!form.closest('.tinv-wishlist')) return;
+
+      e.preventDefault();
+      var action = form.getAttribute('action') || '/wishlist/';
+      var method = (form.getAttribute('method') || 'post').toUpperCase();
+      var payload = new FormData(form);
+
+      fetch(action, {
+        method: method,
+        body: payload,
+        credentials: 'same-origin'
+      }).then(function(){
+        return loadWishlist(true);
+      }).catch(function(){
+        content.innerHTML = '<p class="shk-wishlist-drawer__empty">Не удалось обновить список желаний.</p>';
+      });
+    });
+
+    root.addEventListener('click', function(e){
+      var actionLink = e.target.closest('.tinv-wishlist .product-remove a, .tinv-wishlist a.button.wc-backward');
+      if (!actionLink) return;
+      var href = actionLink.getAttribute('href');
+      if (!href || href === '#') return;
+
+      if (actionLink.classList.contains('wc-backward')) {
+        closeDrawer();
+        return;
+      }
+
+      e.preventDefault();
+      fetch(href, { credentials: 'same-origin' })
+        .then(function(){ return loadWishlist(true); })
+        .catch(function(){ return loadWishlist(true); });
+    });
+
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && root.classList.contains('is-open')) {
+        closeDrawer();
+      }
+    });
+  });
+})();
+</script>
+<?php });
+
+add_action('wp_footer', function(){ ?>
+<script>
+(function(){
   function hideEmptyProductTags(root){
     var scope = root || document;
     scope.querySelectorAll('.shk-product-tag, .elementor-element-92d4a91').forEach(function(tag){
